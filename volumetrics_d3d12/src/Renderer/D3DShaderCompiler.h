@@ -20,6 +20,10 @@ public:
 		return Get().CompileFromFileImpl(file, entryPoint, target, defines, ppBlob);
 	}
 
+	static D3D12_SHADER_BYTECODE GetBytecodeFromBlob(IDxcBlob* blob)
+	{
+		return { blob->GetBufferPointer(), blob->GetBufferSize() };
+	}
 
 	// e.g.: SetShaderModel(L"6", L"5"); for shader model 6.5
 	static void SetShaderModel(const wchar_t* major, const wchar_t* minor)
