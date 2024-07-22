@@ -1,0 +1,12 @@
+[submodule "volumetrics_d3d12/vendor/DirectX-Headers"]
+	path = volumetrics_d3d12/vendor/DirectX-Headers
+	url = https://github.com/microsoft/DirectX-Headers
+[submodule "volumetrics_d3d12/vendor/imgui"]
+	path = volumetrics_d3d12/vendor/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "volumetrics_d3d12/vendor/args"]
+	path = volumetrics_d3d12/vendor/args
+	url = https://github.com/Taywee/args
+[submodule "volumetrics_d3d12/vendor/json"]
+	path = volumetrics_d3d12/vendor/json
+	url = https://github.com/nlohmann/json
