@@ -1,0 +1,6 @@
+.vs/
+x64/
+*.filters
+*.user
+imgui.ini
+captures/

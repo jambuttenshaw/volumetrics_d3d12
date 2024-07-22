@@ -21,6 +21,7 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 	, m_ClientHeight(height)
 	, m_Flags(flags)
 	, m_BackBufferFormat(DXGI_FORMAT_R8G8B8A8_UNORM)
+	, m_DepthStencilFormat(DXGI_FORMAT_D32_FLOAT)
 {
 	ASSERT(!g_D3DGraphicsContext, "Cannot initialize a second graphics context!");
 	g_D3DGraphicsContext = this;
@@ -55,6 +56,7 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 
 	CreateRTVs();
 	CreateFrameResources();
+	CreateDepthStencilBuffer();
 
 	// Setup for raytracing
 	{
@@ -93,6 +95,7 @@ D3DGraphicsContext::~D3DGraphicsContext()
 
 	// Free allocations
 	m_RTVs.Free();
+	m_DSV.Free();
 	m_ImGuiResources.Free();
 
 	// Free frame resources
@@ -175,7 +178,8 @@ void D3DGraphicsContext::StartDraw(const PassConstantBuffer& passCB) const
 	m_CommandList->ResourceBarrier(1, &barrier);
 
 	const D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = m_RTVs.GetCPUHandle(m_FrameIndex);
-	m_CommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+	const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = m_DSV.GetCPUHandle();
+	m_CommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
 	// Setup descriptor heaps
 	ID3D12DescriptorHeap* ppHeaps[] = { m_SRVHeap->GetHeap(), m_SamplerHeap->GetHeap() };
@@ -210,6 +214,7 @@ void D3DGraphicsContext::ClearBackBuffer(const XMFLOAT4& clearColor) const
 	PIXBeginEvent(PIX_COLOR_INDEX(4), L"Clear Back Buffer");
 
 	m_CommandList->ClearRenderTargetView(m_RTVs.GetCPUHandle(m_FrameIndex), &clearColor.x, 0, nullptr);
+	m_CommandList->ClearDepthStencilView(m_DSV.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 	PIXEndEvent();
 }
@@ -266,6 +271,9 @@ void D3DGraphicsContext::Resize(UINT width, UINT height)
 		m_RenderTargets[n].Reset();
 	m_RTVs.Free();
 
+	m_DepthBuffer.Reset();
+	m_DSV.Free();
+
 	// Process all deferred frees
 	ProcessAllDeferrals();
 
@@ -278,6 +286,7 @@ void D3DGraphicsContext::Resize(UINT width, UINT height)
 
 	m_FrameIndex = 0;
 	CreateRTVs();
+	CreateDepthStencilBuffer();
 
 	// Send required work to re-init buffers
 	THROW_IF_FAIL(m_CommandList->Close());
@@ -442,6 +451,7 @@ void D3DGraphicsContext::CreateSwapChain()
 void D3DGraphicsContext::CreateDescriptorHeaps()
 {
 	m_RTVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, s_FrameCount, true);
+	m_DSVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, true);
 
 	// SRV/CBV/UAV heap
 	constexpr UINT Count = 256;
@@ -491,6 +501,46 @@ void D3DGraphicsContext::CreateFrameResources()
 	m_CurrentFrameResources = m_FrameResources[m_FrameIndex].get();
 }
 
+void D3DGraphicsContext::CreateDepthStencilBuffer()
+{
+	// Create a resource for the depth buffer
+	const auto defaultHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+	const auto desc = CD3DX12_RESOURCE_DESC(
+		D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+		0,
+		m_ClientWidth,
+		m_ClientHeight,
+		1,
+		1,
+		m_DepthStencilFormat,
+		1,
+		0,
+		D3D12_TEXTURE_LAYOUT_UNKNOWN,
+		D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL
+	);
+	const auto clearValue = CD3DX12_CLEAR_VALUE(m_DepthStencilFormat, 1.0f, 0);
+
+	THROW_IF_FAIL(m_Device->CreateCommittedResource(
+		&defaultHeap,
+		D3D12_HEAP_FLAG_NONE,
+		&desc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&clearValue,
+		IID_PPV_ARGS(&m_DepthBuffer)));
+
+	// Create DSV
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
+	dsvDesc.Format = m_DepthStencilFormat;
+	dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+	dsvDesc.Texture2D.MipSlice = 0;
+
+	m_DSV = m_DSVHeap->Allocate(1);
+	ASSERT(m_DSV.IsValid(), "Failed to allocate DSV");
+	m_Device->CreateDepthStencilView(m_DepthBuffer.Get(), &dsvDesc, m_DSV.GetCPUHandle());
+}
+
+
 bool D3DGraphicsContext::CheckRaytracingSupport() const
 {
 	ComPtr<ID3D12Device> testDevice;
@@ -536,6 +586,7 @@ void D3DGraphicsContext::ProcessDeferrals(UINT frameIndex) const
 		m_FrameResources[frameIndex]->ProcessDeferrals();
 
 	m_RTVHeap->ProcessDeferredFree(frameIndex);
+	m_DSVHeap->ProcessDeferredFree(frameIndex);
 	m_SRVHeap->ProcessDeferredFree(frameIndex);
 	m_SamplerHeap->ProcessDeferredFree(frameIndex);
 }

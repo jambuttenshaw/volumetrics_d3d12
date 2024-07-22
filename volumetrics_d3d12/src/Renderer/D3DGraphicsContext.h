@@ -117,6 +117,7 @@ private:
 	void CreateCommandList();
 	void CreateRTVs();
 	void CreateFrameResources();
+	void CreateDepthStencilBuffer();
 
 	// Raytracing
 	bool CheckRaytracingSupport() const;
@@ -150,6 +151,7 @@ private:
 
 	// Formats
 	DXGI_FORMAT m_BackBufferFormat;
+	DXGI_FORMAT m_DepthStencilFormat;
 
 	// Pipeline objects
 	ComPtr<IDXGIAdapter1> m_Adapter;
@@ -166,6 +168,9 @@ private:
 	ComPtr<ID3D12Resource> m_RenderTargets[s_FrameCount];
 	DescriptorAllocation m_RTVs;
 
+	ComPtr<ID3D12Resource> m_DepthBuffer;
+	DescriptorAllocation m_DSV;
+
 	// Command queues
 	std::unique_ptr<D3DQueue> m_DirectQueue;
 	std::unique_ptr<D3DQueue> m_ComputeQueue;
@@ -180,6 +185,7 @@ private:
 
 	// Descriptor heaps
 	std::unique_ptr<DescriptorHeap> m_RTVHeap;
+	std::unique_ptr<DescriptorHeap> m_DSVHeap;
 	std::unique_ptr<DescriptorHeap> m_SRVHeap;				// SRV, UAV, and CBV heap (named SRVHeap for brevity)
 	std::unique_ptr<DescriptorHeap> m_SamplerHeap;
 
