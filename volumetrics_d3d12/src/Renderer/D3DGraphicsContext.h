@@ -27,6 +27,9 @@ struct D3DGraphicsContextFlags
 {
 	bool EnableGPUCaptures = false;
 	bool EnableDRED = false;
+
+	// Raytracing
+	bool RequiresRaytracing = false; // Requires RT hardware support
 };
 
 

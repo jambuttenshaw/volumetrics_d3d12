@@ -44,7 +44,6 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 
 	// Initialize D3D components
 	CreateAdapter();
-	ASSERT(CheckRaytracingSupport(), "Adapter does not support raytracing.");
  
 	// Create m_Device resources
 	CreateDevice();
@@ -58,10 +57,20 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 	CreateFrameResources();
 	CreateDepthStencilBuffer();
 
-	// Setup for raytracing
 	{
-		// Create DXR resources
-		CreateRaytracingInterfaces();
+		if (CheckRaytracingSupport())
+		{
+			// Create DXR resources
+			CreateRaytracingInterfaces();
+		}
+		else
+		{
+			if (m_Flags.RequiresRaytracing)
+			{
+				ASSERT("Application requries hardware raytracing, but the adapter does not support it.");
+				throw std::exception();
+			}
+		}
 	}
 
 	m_ImGuiResources = m_SRVHeap->Allocate(1);
