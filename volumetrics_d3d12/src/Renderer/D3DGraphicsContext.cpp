@@ -57,19 +57,17 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 	CreateFrameResources();
 	CreateDepthStencilBuffer();
 
+	if (CheckRaytracingSupport())
 	{
-		if (CheckRaytracingSupport())
+		// Create DXR resources
+		CreateRaytracingInterfaces();
+	}
+	else
+	{
+		if (m_Flags.RequiresRaytracing)
 		{
-			// Create DXR resources
-			CreateRaytracingInterfaces();
-		}
-		else
-		{
-			if (m_Flags.RequiresRaytracing)
-			{
-				ASSERT("Application requries hardware raytracing, but the adapter does not support it.");
-				throw std::exception();
-			}
+			ASSERT(false, "Application requries hardware raytracing, but the adapter does not support it.");
+			throw std::exception();
 		}
 	}
 
