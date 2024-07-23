@@ -40,17 +40,24 @@ void Scene::PreRender()
 }
 
 
-void Scene::AddGeometry()
+size_t Scene::AddGeometry(std::unique_ptr<TriangleGeometry>&& geometry)
 {
-	//m_Geometries.push_back(geometry);
+	m_Geometries.emplace_back(std::move(geometry));
+	return m_Geometries.size() - 1;
 }
 
 
-GeometryInstance* Scene::CreateGeometryInstance()
+GeometryInstance* Scene::CreateGeometryInstance(size_t geometryHandle)
 {
-	//m_GeometryInstances.emplace_back(instanceID);
-	//return &m_GeometryInstances.back();
-	return nullptr;
+	if (m_GeometryInstances.size() == m_MaxGeometryInstances)
+	{
+		LOG_WARN("Maximum geometry instances reached!");
+		return nullptr;
+	}
+
+	UINT instanceID = static_cast<UINT>(m_GeometryInstances.size());
+	m_GeometryInstances.emplace_back(instanceID, m_Geometries.at(geometryHandle).get());
+	return &m_GeometryInstances.back();
 }
 
 

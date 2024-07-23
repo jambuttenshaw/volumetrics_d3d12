@@ -61,7 +61,7 @@ public:
 	D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc);
 };
 
-class D3DComputePipeline : D3DPipeline
+class D3DComputePipeline : public D3DPipeline
 {
 public:
 	D3DComputePipeline(D3DComputePipelineDesc* desc);

@@ -4,6 +4,7 @@
 #include "Core.h"
 #include "D3DGraphicsContext.h"
 #include "D3DShaderCompiler.h"
+#include "Geometry/Geometry.h"
 
 
 D3DGraphicsPipeline::D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc)
@@ -42,12 +43,6 @@ D3DGraphicsPipeline::D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc)
 		desc->Defines,
 		&ps));
 
-	// Create input layout
-	D3D12_INPUT_ELEMENT_DESC inputs[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
-
 	// Create the pipeline description
 	{
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -60,8 +55,8 @@ D3DGraphicsPipeline::D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc)
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 		psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 
-		psoDesc.InputLayout.NumElements = ARRAYSIZE(inputs);
-		psoDesc.InputLayout.pInputElementDescs = inputs;
+		psoDesc.InputLayout.NumElements = ARRAYSIZE(Vertex::InputLayout);
+		psoDesc.InputLayout.pInputElementDescs = Vertex::InputLayout;
 
 		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 

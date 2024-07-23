@@ -438,6 +438,8 @@
     <ClCompile Include="src\Renderer\D3DPipeline.cpp" />
     <ClCompile Include="src\Renderer\D3DQueue.cpp" />
     <ClCompile Include="src\Renderer\D3DShaderCompiler.cpp" />
+    <ClCompile Include="src\Renderer\DeferredRenderer.cpp" />
+    <ClCompile Include="src\Renderer\Geometry\Geometry.cpp" />
     <ClCompile Include="src\Renderer\Lighting\Light.cpp" />
     <ClCompile Include="src\Renderer\Lighting\Material.cpp" />
     <ClCompile Include="src\Renderer\Memory\MemoryAllocator.cpp" />
@@ -548,6 +550,7 @@
     <ClInclude Include="src\Renderer\D3DPipeline.h" />
     <ClInclude Include="src\Renderer\D3DQueue.h" />
     <ClInclude Include="src\Renderer\D3DShaderCompiler.h" />
+    <ClInclude Include="src\Renderer\DeferredRenderer.h" />
     <ClInclude Include="src\Renderer\Geometry\Geometry.h" />
     <ClInclude Include="src\Renderer\Geometry\GeometryInstance.h" />
     <ClInclude Include="src\Renderer\Hlsl\HlslDefines.h" />
@@ -780,6 +783,20 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.5</ShaderModel>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\gbuffer\basic_ps.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Shipping|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile_Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\gbuffer\basic_vs.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Shipping|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile_Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="assets\shaders\raytracing\raytracing.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Library</ShaderType>
