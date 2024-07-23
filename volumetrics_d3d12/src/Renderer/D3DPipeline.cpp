@@ -65,8 +65,13 @@ void D3DGraphicsPipeline::Create(D3DGraphicsPipelineDesc* desc)
 
 		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
-		psoDesc.NumRenderTargets = 1;
-		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		// NOTE: There might be 0 render targets in depth-only passes
+		psoDesc.NumRenderTargets = static_cast<UINT>(desc->RenderTargetFormats.size());
+		for (UINT i = 0; i < psoDesc.NumRenderTargets; i++)
+		{
+			psoDesc.RTVFormats[i] = desc->RenderTargetFormats.at(i);
+		}
+
 		psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		psoDesc.SampleDesc.Count = 1;
 		psoDesc.SampleDesc.Quality = 0;

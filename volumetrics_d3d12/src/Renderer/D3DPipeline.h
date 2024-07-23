@@ -19,6 +19,8 @@ struct D3DGraphicsPipelineDesc
 	ShaderDesc VertexShader;
 	ShaderDesc PixelShader;
 
+	std::vector<DXGI_FORMAT> RenderTargetFormats;
+
 	std::vector<std::wstring> Defines;
 };
 

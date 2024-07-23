@@ -90,6 +90,18 @@ DeferredRenderer::DeferredRenderer()
 	// Create pipeline state
 	{
 		D3DGraphicsPipelineDesc psoDesc = {};
+
+		// Set up root parameters
+
+		// Shaders
+		psoDesc.VertexShader.ShaderPath = L"assets/shaders/gbuffer/basic_vs.hlsl";
+		psoDesc.VertexShader.EntryPoint = L"main";
+
+		psoDesc.PixelShader.ShaderPath = L"assets/shaders/gbuffer/basic_ps.hlsl";
+		psoDesc.PixelShader.EntryPoint = L"main";
+
+		// Add all render target formats to the description
+		psoDesc.RenderTargetFormats.insert(psoDesc.RenderTargetFormats.end(), m_RTFormats.begin(), m_RTFormats.end());
 	}
 }
 
