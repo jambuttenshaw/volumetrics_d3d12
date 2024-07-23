@@ -87,6 +87,8 @@ public:
 	// Descriptor heaps
 	inline DescriptorHeap* GetSRVHeap() const { return m_SRVHeap.get(); }
 	inline DescriptorHeap* GetSamplerHeap() const { return m_SamplerHeap.get(); }
+	inline DescriptorHeap* GetRTVHeap() const { return m_RTVHeap.get(); }
+	inline DescriptorHeap* GetDSVHeap() const { return m_DSVHeap.get(); }
 
 	// For ImGui
 	inline ID3D12DescriptorHeap* GetImGuiResourcesHeap() const { return m_ImGuiResources.GetHeap(); }

@@ -9,6 +9,22 @@ class Scene;
 
 class DeferredRenderer
 {
+	enum GB_RTV
+	{
+		GB_RTV_Albedo = 0,
+		GB_RTV_Normal,
+		GB_RTV_RoughnessMetalness,
+		GB_RTV_MAX
+	};
+	enum GB_SRV
+	{
+		GB_SRV_Albedo = 0,
+		GB_SRV_Normal,
+		GB_SRV_RoughnessMetalness,
+		GB_SRV_Depth,
+		GB_SRV_MAX
+	};
+
 public:
 	DeferredRenderer();
 	~DeferredRenderer();
@@ -23,7 +39,7 @@ public:
 
 private:
 	// The scene to render
-	const Scene* m_Scene;
+	const Scene* m_Scene = nullptr;
 
 	// G-buffer resources
 	// The deferred renderer owns:
@@ -41,6 +57,10 @@ private:
 	// Resources
 	std::array<Texture, s_RTCount> m_RenderTargets;
 	Texture m_DepthBuffer;
+
+	DescriptorAllocation m_RTVs;
+	DescriptorAllocation m_DSV;
+	DescriptorAllocation m_SRVs;
 
 	// Pipeline state
 	D3DGraphicsPipeline m_GBufferPipeline;

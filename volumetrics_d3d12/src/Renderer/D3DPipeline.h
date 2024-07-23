@@ -1,4 +1,5 @@
 #pragma once
+#include "Core.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -39,7 +40,11 @@ struct D3DComputePipelineDesc
 class D3DPipeline
 {
 public:
+	D3DPipeline() = default;
 	virtual ~D3DPipeline() = default;
+
+	DISALLOW_COPY(D3DPipeline)
+	DEFAULT_MOVE(D3DPipeline)
 
 	void Bind(ID3D12GraphicsCommandList* commandList) const
 	{
@@ -58,11 +63,17 @@ protected:
 class D3DGraphicsPipeline : public D3DPipeline
 {
 public:
+	D3DGraphicsPipeline() = default;
 	D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc);
+
+	void Create(D3DGraphicsPipelineDesc* desc);
 };
 
 class D3DComputePipeline : public D3DPipeline
 {
 public:
+	D3DComputePipeline() = default;
 	D3DComputePipeline(D3DComputePipelineDesc* desc);
+
+	void Create(D3DComputePipelineDesc* desc);
 };

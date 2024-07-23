@@ -9,6 +9,11 @@
 
 D3DGraphicsPipeline::D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc)
 {
+	Create(desc);
+}
+
+void D3DGraphicsPipeline::Create(D3DGraphicsPipelineDesc* desc)
+{
 	const auto device = g_D3DGraphicsContext->GetDevice();
 
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
@@ -73,6 +78,11 @@ D3DGraphicsPipeline::D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc)
 
 
 D3DComputePipeline::D3DComputePipeline(D3DComputePipelineDesc* desc)
+{
+	Create(desc);
+}
+
+void D3DComputePipeline::Create(D3DComputePipelineDesc* desc)
 {
 	const auto device = g_D3DGraphicsContext->GetDevice();
 
