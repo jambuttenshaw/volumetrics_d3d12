@@ -37,6 +37,14 @@ public:
 	// Resize gbuffer resources to match the resolution of the back buffer
 	void OnBackBufferResize();
 
+	// Rendering
+
+	// Perform g buffer population pass
+	void RenderGeometryBuffer();
+
+private:
+	void CreateResolutionDependentResources();
+
 private:
 	// The scene to render
 	const Scene* m_Scene = nullptr;
@@ -47,12 +55,12 @@ private:
 	// - a depth buffer
 
 	constexpr inline static UINT64 s_RTCount = 3; // The number of RTs in the gbuffer
-	constexpr std::array<DXGI_FORMAT, s_RTCount> m_RTFormats = {
+	std::array<DXGI_FORMAT, s_RTCount> m_RTFormats = {
 		DXGI_FORMAT_R11G11B10_FLOAT, // albedo
 		DXGI_FORMAT_R32G32B32_FLOAT, // normal
 		DXGI_FORMAT_R16G16_UNORM	 // roughness + metallic
 	};
-	constexpr DXGI_FORMAT m_DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	DXGI_FORMAT m_DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
 	// Resources
 	std::array<Texture, s_RTCount> m_RenderTargets;
@@ -62,7 +70,8 @@ private:
 	DescriptorAllocation m_DSV;
 	DescriptorAllocation m_SRVs;
 
-	// Pipeline state
+	// Pipeline states
 	D3DGraphicsPipeline m_GBufferPipeline;
+	D3DComputePipeline m_LightingPipeline;
 
 };

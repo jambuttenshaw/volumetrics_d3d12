@@ -28,6 +28,7 @@ public:
 	GeometryInstance* CreateGeometryInstance(size_t geometryHandle);
 
 	// Getters
+	inline const std::vector<GeometryInstance>& GetAllGeometryInstances() const { return m_GeometryInstances; }
 	inline const std::vector<std::unique_ptr<TriangleGeometry>>& GetAllGeometries() const { return m_Geometries; }
 	inline RaytracingAccelerationStructureManager* GetRaytracingAccelerationStructure() const { return m_AccelerationStructure.get(); }
 

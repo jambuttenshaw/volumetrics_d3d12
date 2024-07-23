@@ -52,7 +52,8 @@ public:
 	void EndDraw() const;
 
 	void ClearBackBuffer(const XMFLOAT4& clearColor) const;
-	void CopyRaytracingOutput(ID3D12Resource* raytracingOutput) const;
+	// For copying the output on a UAV into the back buffer
+	void CopyToBackBuffer(ID3D12Resource* resource) const;
 
 	void DeferRelease(const ComPtr<IUnknown>& resource) const;
 

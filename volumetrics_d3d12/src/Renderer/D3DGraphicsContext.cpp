@@ -226,7 +226,7 @@ void D3DGraphicsContext::ClearBackBuffer(const XMFLOAT4& clearColor) const
 	PIXEndEvent();
 }
 
-void D3DGraphicsContext::CopyRaytracingOutput(ID3D12Resource* raytracingOutput) const
+void D3DGraphicsContext::CopyToBackBuffer(ID3D12Resource* resource) const
 {
 	PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(71), "Copy Raytracing Output");
 
@@ -234,14 +234,14 @@ void D3DGraphicsContext::CopyRaytracingOutput(ID3D12Resource* raytracingOutput) 
 
 	D3D12_RESOURCE_BARRIER preCopyBarriers[2];
 	preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
-	preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(raytracingOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	m_CommandList->ResourceBarrier(ARRAYSIZE(preCopyBarriers), preCopyBarriers);
 
-	m_CommandList->CopyResource(renderTarget, raytracingOutput);
+	m_CommandList->CopyResource(renderTarget, resource);
 
 	D3D12_RESOURCE_BARRIER postCopyBarriers[2];
 	postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(raytracingOutput, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(resource, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 	m_CommandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
 

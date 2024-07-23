@@ -18,7 +18,7 @@ public:
 	}
 
 	inline UINT GetInstanceID() const { return m_InstanceID; }
-	inline TriangleGeometry* Geometry() const { return m_Geometry; }
+	inline TriangleGeometry* GetGeometry() const { return m_Geometry; }
 
 	inline const Transform& GetTransform() const { return m_Transform; }
 	inline void SetTransform(const Transform& transform) { m_Transform = transform; m_IsDirty = true; }

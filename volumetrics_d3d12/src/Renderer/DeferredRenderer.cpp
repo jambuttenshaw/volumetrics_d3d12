@@ -2,9 +2,64 @@
 #include "DeferredRenderer.h"
 
 #include "D3DGraphicsContext.h"
+#include "Application/Scene.h"
 
 
 DeferredRenderer::DeferredRenderer()
+{
+	CreateResolutionDependentResources();
+
+	// Create g buffer pipeline state
+	{
+		D3DGraphicsPipelineDesc psoDesc = {};
+
+		// Set up root parameters
+
+		// Shaders
+		psoDesc.VertexShader.ShaderPath = L"assets/shaders/gbuffer/basic_vs.hlsl";
+		psoDesc.VertexShader.EntryPoint = L"main";
+
+		psoDesc.PixelShader.ShaderPath = L"assets/shaders/gbuffer/basic_ps.hlsl";
+		psoDesc.PixelShader.EntryPoint = L"main";
+
+		// Add all render target formats to the description
+		psoDesc.RenderTargetFormats.insert(psoDesc.RenderTargetFormats.end(), m_RTFormats.begin(), m_RTFormats.end());
+
+		m_GBufferPipeline.Create(&psoDesc);
+	}
+
+	// Create lighting pass pipeline state
+	{
+		D3DComputePipelineDesc psoDesc = {};
+
+		// Set up root parameters
+
+		psoDesc.Shader = L"assets/shaders/lighting/lighting_pass_cs.hlsl";
+		psoDesc.EntryPoint = L"main";
+
+		m_LightingPipeline.Create(&psoDesc);
+	}
+}
+
+DeferredRenderer::~DeferredRenderer()
+{
+	// Free descriptors
+	m_RTVs.Free();
+	m_DSV.Free();
+	m_SRVs.Free();
+}
+
+void DeferredRenderer::OnBackBufferResize()
+{
+	m_RTVs.Free();
+	m_DSV.Free();
+	m_SRVs.Free();
+
+	CreateResolutionDependentResources();
+}
+
+
+void DeferredRenderer::CreateResolutionDependentResources()
 {
 	const auto device = g_D3DGraphicsContext->GetDevice();
 
@@ -21,7 +76,7 @@ DeferredRenderer::DeferredRenderer()
 	desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
-	for (UINT64 rt = 0; rt < s_RTCount; rt++)
+	for (UINT rt = 0; rt < s_RTCount; rt++)
 	{
 		desc.Format = m_RTFormats[rt];
 		m_RenderTargets[rt].Allocate(&desc, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -42,7 +97,7 @@ DeferredRenderer::DeferredRenderer()
 		rtvDesc.Texture2D.MipSlice = 0;
 		rtvDesc.Texture2D.PlaneSlice = 0;
 
-		for (UINT64 rt = 0; rt < s_RTCount; rt++)
+		for (UINT rt = 0; rt < s_RTCount; rt++)
 		{
 			rtvDesc.Format = m_RTFormats[rt];
 			device->CreateRenderTargetView(m_RenderTargets.at(rt).GetResource(), &rtvDesc, m_RTVs.GetCPUHandle(rt));
@@ -76,7 +131,7 @@ DeferredRenderer::DeferredRenderer()
 		srvDesc.Texture2D.PlaneSlice = 0;
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
-		for (UINT64 rt = 0; rt < s_RTCount; rt++)
+		for (UINT rt = 0; rt < s_RTCount; rt++)
 		{
 			srvDesc.Format = m_RTFormats.at(rt);
 			device->CreateShaderResourceView(m_RenderTargets.at(rt).GetResource(), &srvDesc, m_SRVs.GetCPUHandle(rt));
@@ -85,35 +140,53 @@ DeferredRenderer::DeferredRenderer()
 		srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 		device->CreateShaderResourceView(m_DepthBuffer.GetResource(), &srvDesc, m_SRVs.GetCPUHandle(GB_SRV_Depth));
 	}
-
-
-	// Create pipeline state
-	{
-		D3DGraphicsPipelineDesc psoDesc = {};
-
-		// Set up root parameters
-
-		// Shaders
-		psoDesc.VertexShader.ShaderPath = L"assets/shaders/gbuffer/basic_vs.hlsl";
-		psoDesc.VertexShader.EntryPoint = L"main";
-
-		psoDesc.PixelShader.ShaderPath = L"assets/shaders/gbuffer/basic_ps.hlsl";
-		psoDesc.PixelShader.EntryPoint = L"main";
-
-		// Add all render target formats to the description
-		psoDesc.RenderTargetFormats.insert(psoDesc.RenderTargetFormats.end(), m_RTFormats.begin(), m_RTFormats.end());
-	}
-}
-
-DeferredRenderer::~DeferredRenderer()
-{
-	// Free
-	ASSERT(false, "Remember to free descriptors!");
 }
 
 void DeferredRenderer::Setup(const Scene& scene)
 {
-	
+	m_Scene = &scene;
 }
 
+
+void DeferredRenderer::RenderGeometryBuffer()
+{
+	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+
+	// Clear g buffer
+	for (UINT rt = 0; rt < s_RTCount; rt++)
+	{
+		constexpr XMFLOAT4 clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
+		commandList->ClearRenderTargetView(m_RTVs.GetCPUHandle(rt), &clearColor.x, 0, nullptr);
+	}
+	commandList->ClearDepthStencilView(m_DSV.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+
+	// Assign render targets and depth buffer
+	const auto firstRTV = m_RTVs.GetCPUHandle();
+	const auto dsv = m_DSV.GetCPUHandle();
+	commandList->OMSetRenderTargets(s_RTCount, &firstRTV, true, &dsv);
+
+
+	// Perform drawing into g-buffer
+	m_GBufferPipeline.Bind(commandList);
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	for (const auto& geometryInstance : m_Scene->GetAllGeometryInstances())
+	{
+		// Set material root parameters
+		const TriangleGeometry* geometry = geometryInstance.GetGeometry();
+
+		commandList->IASetIndexBuffer(&geometry->IndexBufferView);
+		commandList->IASetVertexBuffers(0, 1, &geometry->VertexBufferView);
+
+		commandList->DrawIndexedInstanced(geometry->IndexBuffer.GetElementCount(), 1, 0, 0, 0);
+	}
+
+	// Switch resource states
+	{
+		
+	}
+
+	// Perform lighting pass
+
+}
 
