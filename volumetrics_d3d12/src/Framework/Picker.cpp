@@ -2,11 +2,12 @@
 #include "Picker.h"
 
 #include "Renderer/D3DGraphicsContext.h"
+#include "Renderer/Geometry/GeometryInstance.h"
 
 
 Picker::Picker()
 {
-	m_PickingParamsStaging.rayIndex = { INVALID_PICK_INDEX, INVALID_PICK_INDEX };
+	m_PickingParamsStaging.rayIndex = { static_cast<UINT>(-1), static_cast<UINT>(-1) };
 
 	m_LastPick.hitLocation = { D3D12_FLOAT32_MAX, D3D12_FLOAT32_MAX, D3D12_FLOAT32_MAX };
 	m_LastPick.instanceID = INVALID_INSTANCE_ID;

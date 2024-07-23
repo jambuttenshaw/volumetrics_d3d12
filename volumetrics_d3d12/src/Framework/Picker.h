@@ -1,11 +1,24 @@
 #pragma once
-#include "HlslCompat/RaytracingHlslCompat.h"
 #include "Renderer/Buffer/DefaultBuffer.h"
 #include "Renderer/Buffer/ReadbackBuffer.h"
 #include "Renderer/Buffer/UploadBuffer.h"
 
 
 using namespace DirectX;
+
+// Designates which ray should perform picking, or -1 if no picking should be performed
+struct PickingQueryParameters
+{
+	// The index of the ray that should report what it is picking, in terms of its screen-space pixel position
+	XMUINT2 rayIndex;
+};
+// All the information a ray will return if it is designated to 'pick' an object from the scene
+// To allow the mouse to interact with the geometry being rendered
+struct PickingQueryPayload
+{
+	XMFLOAT3 hitLocation;
+	UINT instanceID;
+};
 
 
 // Can be attached to the raytracer to query ray intersections

@@ -153,10 +153,6 @@ void D3DApplication::OnInit()
 		m_LightManager->ProcessEnvironmentMap(std::move(environmentMap));
 	}
 
-	// Set default pass buffer values
-	m_PassCB.HeatmapQuantization = 16;
-	m_PassCB.HeatmapHueRange = 0.33f;
-
 	LOG_INFO("Application startup complete.");
 }
 
@@ -322,9 +318,6 @@ void D3DApplication::UpdatePassCB()
 
 	m_PassCB.TotalTime = m_Timer.GetTimeSinceReset();
 	m_PassCB.DeltaTime = m_Timer.GetDeltaTime();
-
-	// Copy lighting data into the pass buffer
-	m_LightManager->CopyLightData(&m_PassCB.Light, 1);
 }
 
 
@@ -462,25 +455,7 @@ bool D3DApplication::ImGuiApplicationInfo()
 				};
 
 			ImGui::Text("View Mode");
-			RenderFlagOption("Bounding Box", RENDER_FLAG_DISPLAY_BOUNDING_BOX);
-			if (m_PassCB.Flags & RENDER_FLAG_DISPLAY_BOUNDING_BOX)
-			{
-				m_PassCB.Flags &= ~RENDER_FLAG_DISPLAY_NORMALS;
-				RenderFlagOption("Brick Index", RENDER_FLAG_DISPLAY_BRICK_INDEX);
-				RenderFlagOption("Pool UVW", RENDER_FLAG_DISPLAY_POOL_UVW);
-			}
-			else
-			{
-				RenderFlagOption("Heatmap", RENDER_FLAG_DISPLAY_HEATMAP);
-				RenderFlagOption("Normals", RENDER_FLAG_DISPLAY_NORMALS);
-			}
-			RenderFlagOption("Edit Count", RENDER_FLAG_DISPLAY_BRICK_EDIT_COUNT);
-
 			ImGui::Text("Lighting Options");
-			RenderFlagOption("Disable IBL", RENDER_FLAG_DISABLE_IBL);
-			RenderFlagOption("Disable Skybox", RENDER_FLAG_DISABLE_SKYBOX);
-			RenderFlagOption("Disable Shadow", RENDER_FLAG_DISABLE_SHADOW);
-			RenderFlagOption("Disable Reflection", RENDER_FLAG_DISABLE_REFLECTION);
 		}
 
 		ImGui::Separator();
@@ -490,17 +465,6 @@ bool D3DApplication::ImGuiApplicationInfo()
 		ImGui::Separator();
 		ImGui::Text("Materials");
 		m_MaterialManager->DrawGui();
-
-		ImGui::Separator();
-
-		ImGui::Text("Heatmap");
-
-		int heatmap = static_cast<int>(m_PassCB.HeatmapQuantization);
-		if (ImGui::InputInt("Quantization", &heatmap))
-		{
-			m_PassCB.HeatmapQuantization = static_cast<UINT>(heatmap);
-		}
-		ImGui::SliderFloat("Hue Range", &m_PassCB.HeatmapHueRange, 0.0f, 1.0f);
 
 		ImGui::Separator();
 

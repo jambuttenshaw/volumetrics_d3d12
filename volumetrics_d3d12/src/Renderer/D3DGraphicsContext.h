@@ -4,7 +4,7 @@
 #include "Memory/MemoryAllocator.h"
 
 #include "D3DQueue.h"
-#include "HlslCompat/RaytracingHlslCompat.h"
+#include "HlslCompat/StructureHlslCompat.h"
 
 
 using Microsoft::WRL::ComPtr;

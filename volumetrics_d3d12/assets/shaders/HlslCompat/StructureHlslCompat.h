@@ -20,12 +20,25 @@ struct AABB
 	XMFLOAT3 BottomRight;
 };
 
-struct Brick
+
+// Constant attributes per frame
+struct PassConstantBuffer
 {
-	XMFLOAT3 TopLeft;	// Top left of this brick in eval space
-	XMUINT2 SubBrickMask;		// A bit mask of sub-bricks
-	UINT IndexOffset;			// Offset into the index buffer for this bricks indices
-	UINT IndexCount;			// The number of indices this brick has
+	XMMATRIX View;
+	XMMATRIX InvView;
+	XMMATRIX Proj;
+	XMMATRIX InvProj;
+	XMMATRIX ViewProj;
+	XMMATRIX InvViewProj;
+
+	XMFLOAT3 WorldEyePos;
+
+	UINT Flags;
+
+	float TotalTime;
+	float DeltaTime;
+
+	XMFLOAT2 Padding;
 };
 
 
@@ -48,7 +61,6 @@ struct MaterialGPUData
 	float Metalness;
 	float Reflectance;
 };
-
 
 
 #endif

@@ -4,8 +4,6 @@
 #include "Renderer/Geometry/Geometry.h"
 #include "Renderer/Geometry/GeometryInstance.h"
 
-#include "Renderer/Raytracing/AccelerationStructure.h"
-
 
 class D3DApplication;
 
@@ -30,7 +28,6 @@ public:
 	// Getters
 	inline const std::vector<GeometryInstance>& GetAllGeometryInstances() const { return m_GeometryInstances; }
 	inline const std::vector<std::unique_ptr<TriangleGeometry>>& GetAllGeometries() const { return m_Geometries; }
-	inline RaytracingAccelerationStructureManager* GetRaytracingAccelerationStructure() const { return m_AccelerationStructure.get(); }
 
 	// Gui
 	virtual bool DisplayGui() { return false; }
@@ -39,9 +36,6 @@ public:
 private:
 	// Handle changes to geometry and update acceleration structure
 	void UpdateAccelerationStructure();
-
-	// Debug Info
-	void DisplayAccelerationStructureDebugInfo() const;
 
 protected:
 	D3DApplication* m_Application = nullptr;
@@ -52,6 +46,4 @@ private:
 	// A collection of all objects in the scene. Each object is an instance of some existing geometry
 	UINT m_MaxGeometryInstances = 0;
 	std::vector<GeometryInstance> m_GeometryInstances;
-
-	std::unique_ptr<RaytracingAccelerationStructureManager> m_AccelerationStructure;
 };

@@ -6,7 +6,7 @@ using Microsoft::WRL::ComPtr;
 #include "Memory/MemoryAllocator.h"
 #include "Buffer/UploadBuffer.h"
 
-#include "HlslCompat/RaytracingHlslCompat.h"
+#include "HlslCompat/StructureHlslCompat.h"
 
 
 class D3DFrameResources

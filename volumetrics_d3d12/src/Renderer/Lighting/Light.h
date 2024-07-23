@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Core.h"
-#include "HlslCompat/RaytracingHlslCompat.h"
+#include "HlslCompat/StructureHlslCompat.h"
 #include "Renderer/D3DPipeline.h"
 
 #include "Renderer/Buffer/Texture.h"

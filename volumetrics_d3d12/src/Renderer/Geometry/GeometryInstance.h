@@ -3,7 +3,10 @@
 #include "Core.h"
 
 #include "Framework/Transform.h"
-#include "HlslCompat/RaytracingHlslCompat.h"
+
+#define INVALID_INSTANCE_ID ((1 << 24) - 1)
+
+struct TriangleGeometry;
 
 
 class GeometryInstance

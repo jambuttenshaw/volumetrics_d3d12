@@ -1,6 +1,6 @@
 #pragma once
 #include "Renderer/Buffer/UploadBuffer.h"
-#include "HlslCompat/RaytracingHlslCompat.h"
+#include "HlslCompat/StructureHlslCompat.h"
 
 using namespace DirectX;
 
