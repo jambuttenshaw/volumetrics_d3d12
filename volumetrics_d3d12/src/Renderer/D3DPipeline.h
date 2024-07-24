@@ -15,6 +15,7 @@ struct D3DGraphicsPipelineDesc
 {
 	UINT NumRootParameters = 0;
 	D3D12_ROOT_PARAMETER1* RootParameters = nullptr;
+	D3D12_ROOT_SIGNATURE_FLAGS RootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
 	ShaderDesc VertexShader;
 	ShaderDesc PixelShader;
@@ -48,11 +49,8 @@ public:
 	DISALLOW_COPY(D3DPipeline)
 	DEFAULT_MOVE(D3DPipeline)
 
-	void Bind(ID3D12GraphicsCommandList* commandList) const
-	{
-		commandList->SetComputeRootSignature(m_RootSignature.Get());
-		commandList->SetPipelineState(m_PipelineState.Get());
-	}
+	virtual void Bind(ID3D12GraphicsCommandList* commandList) const = 0;
+	
 
 	inline ID3D12RootSignature* GetRootSignature() const { return m_RootSignature.Get(); }
 	inline ID3D12PipelineState* GetPipelineState() const { return m_PipelineState.Get(); }
@@ -69,6 +67,12 @@ public:
 	D3DGraphicsPipeline(D3DGraphicsPipelineDesc* desc);
 
 	void Create(D3DGraphicsPipelineDesc* desc);
+
+	virtual void Bind(ID3D12GraphicsCommandList* commandList) const override
+	{
+		commandList->SetGraphicsRootSignature(m_RootSignature.Get());
+		commandList->SetPipelineState(m_PipelineState.Get());
+	}
 };
 
 class D3DComputePipeline : public D3DPipeline
@@ -78,4 +82,10 @@ public:
 	D3DComputePipeline(D3DComputePipelineDesc* desc);
 
 	void Create(D3DComputePipelineDesc* desc);
+
+	virtual void Bind(ID3D12GraphicsCommandList* commandList) const override
+	{
+		commandList->SetComputeRootSignature(m_RootSignature.Get());
+		commandList->SetPipelineState(m_PipelineState.Get());
+	}
 };

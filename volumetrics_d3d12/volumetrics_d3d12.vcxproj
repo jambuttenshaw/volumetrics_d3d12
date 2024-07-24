@@ -440,6 +440,7 @@
     <ClCompile Include="src\Renderer\D3DShaderCompiler.cpp" />
     <ClCompile Include="src\Renderer\DeferredRenderer.cpp" />
     <ClCompile Include="src\Renderer\Geometry\Geometry.cpp" />
+    <ClCompile Include="src\Renderer\Geometry\GeometryInstance.cpp" />
     <ClCompile Include="src\Renderer\Lighting\Light.cpp" />
     <ClCompile Include="src\Renderer\Lighting\Material.cpp" />
     <ClCompile Include="src\Renderer\Memory\MemoryAllocator.cpp" />
@@ -607,6 +608,13 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\shaders\gbuffer\deferred_rendering.hlsli">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Shipping|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile_Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
+    </None>
     <None Include="assets\shaders\include\lighting_helper.hlsli">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Shipping|x64'">true</ExcludedFromBuild>

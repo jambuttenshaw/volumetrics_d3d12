@@ -26,7 +26,7 @@ void D3DGraphicsPipeline::Create(D3DGraphicsPipelineDesc* desc)
 	// Create the root signature
 	{
 		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.Init_1_1(desc->NumRootParameters, desc->RootParameters, 0, nullptr,	D3D12_ROOT_SIGNATURE_FLAG_NONE);
+		rootSignatureDesc.Init_1_1(desc->NumRootParameters, desc->RootParameters, 0, nullptr, desc->RootSignatureFlags);
 
 		ComPtr<ID3DBlob> signature;
 		THROW_IF_FAIL(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, nullptr));
@@ -72,7 +72,7 @@ void D3DGraphicsPipeline::Create(D3DGraphicsPipelineDesc* desc)
 			psoDesc.RTVFormats[i] = desc->RenderTargetFormats.at(i);
 		}
 
-		psoDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+		psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		psoDesc.SampleDesc.Count = 1;
 		psoDesc.SampleDesc.Quality = 0;
 

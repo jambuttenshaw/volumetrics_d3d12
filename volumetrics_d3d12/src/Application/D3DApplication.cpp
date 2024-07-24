@@ -135,10 +135,14 @@ void D3DApplication::OnInit()
 
 	InitImGui();
 
+	m_DeferredRenderer = std::make_unique<DeferredRenderer>();
+
 	m_LightManager = std::make_unique<LightManager>();
 	m_MaterialManager = std::make_unique<MaterialManager>(4);
 
 	m_Scene = std::make_unique<VolumetricScene>(this, 1);
+
+	m_DeferredRenderer->Setup(*m_Scene);
 
 	// Load environment map
 	{
@@ -247,8 +251,12 @@ void D3DApplication::OnRender()
 	m_Scene->PreRender();
 
 	// Render scene
-	constexpr XMFLOAT4 clearColor = { 0.2f, 0.5f, 0.8f, 1.0f };
-	m_GraphicsContext->ClearBackBuffer(clearColor);
+	m_DeferredRenderer->Render();
+
+	// Copy output from deferred renderer to back buffer
+	m_GraphicsContext->CopyToBackBuffer(m_DeferredRenderer->GetOutputResource());
+
+	m_GraphicsContext->SetRenderTargetToBackBuffer(true);
 
 	// ImGui Render
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_GraphicsContext->GetCommandList());
@@ -275,6 +283,8 @@ void D3DApplication::OnDestroy()
 	m_GraphicsContext->WaitForGPUIdle();
 
 	m_Scene.reset();
+
+	m_DeferredRenderer.reset();
 
 	m_LightManager.reset();
 	m_MaterialManager.reset();

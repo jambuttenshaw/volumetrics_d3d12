@@ -15,6 +15,9 @@ public:
 	D3DFrameResources();
 	~D3DFrameResources();
 
+	DISALLOW_COPY(D3DFrameResources)
+	DEFAULT_MOVE(D3DFrameResources)
+
 	// Getters
 	inline ID3D12CommandAllocator* GetCommandAllocator() const { return m_CommandAllocator.Get(); }
 	inline UINT64 GetFenceValue() const { return m_FenceValue; }

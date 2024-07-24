@@ -13,23 +13,36 @@
 Scene::Scene(D3DApplication* application, UINT maxGeometryInstances)
 	: m_Application(application)
 	, m_MaxGeometryInstances(maxGeometryInstances)
+	, m_ObjectCBs(D3DGraphicsContext::GetBackBufferCount())
 {
 	ASSERT(m_Application, "Invalid app.");
 
+	// As there is a fixed max of instances, reserving them in advance ensures the vector will never re-allocate
+	m_GeometryInstances.reserve(m_MaxGeometryInstances);
+
+	for (auto& cb : m_ObjectCBs)
 	{
-		// As there is a fixed max of instances, reserving them in advance ensures the vector will never re-allocate
-		m_GeometryInstances.reserve(m_MaxGeometryInstances);
+		cb.Allocate(g_D3DGraphicsContext->GetDevice(), maxGeometryInstances, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Object Constant Buffer");
 	}
 }
 
 
 void Scene::PreRender()
 {
-	PIXBeginEvent(PIX_COLOR_INDEX(6), L"Scene Render");
+	const auto& objectCB = m_ObjectCBs.at(g_D3DGraphicsContext->GetCurrentBackBuffer());
 
-	UpdateAccelerationStructure();
+	for (auto& geometryInstance : m_GeometryInstances)
+	{
+		if (geometryInstance.IsDirty())
+		{
+			ObjectConstantBuffer cbData = {};
+			cbData.WorldMat = XMMatrixTranspose(geometryInstance.GetTransform().GetWorldMatrix());
 
-	PIXEndEvent();
+			objectCB.CopyElement(geometryInstance.GetInstanceID(), cbData);
+
+			geometryInstance.DecrementFramesDirty();
+		}
+	}
 }
 
 
@@ -54,17 +67,11 @@ GeometryInstance* Scene::CreateGeometryInstance(size_t geometryHandle)
 }
 
 
-void Scene::UpdateAccelerationStructure()
+D3D12_GPU_VIRTUAL_ADDRESS Scene::GetObjectCBAddress(UINT object) const
 {
-	return;
-	/*
-	// Update geometry
-	m_AccelerationStructure->UpdateInstanceDescs(m_GeometryInstances);
-
-	// Rebuild
-	m_AccelerationStructure->Build();
-	*/
+	return m_ObjectCBs.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).GetAddressOfElement(object);
 }
+
 
 
 bool Scene::DisplayGeneralGui() const

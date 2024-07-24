@@ -11,6 +11,7 @@
 #include "Framework/GameTimer.h"
 #include "Framework/Camera/Camera.h"
 #include "Framework/Camera/OrbitalCameraController.h"
+#include "Renderer/DeferredRenderer.h"
 
 
 // Forward declarations
@@ -74,6 +75,8 @@ private:
 	std::unique_ptr<CameraController> m_CameraController;
 
 	std::unique_ptr<Scene> m_Scene;
+
+	std::unique_ptr<DeferredRenderer> m_DeferredRenderer;
 
 	std::unique_ptr<LightManager> m_LightManager;
 	std::unique_ptr<MaterialManager> m_MaterialManager;

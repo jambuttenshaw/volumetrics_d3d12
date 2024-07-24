@@ -4,12 +4,12 @@
 #include "Renderer/D3DGraphicsContext.h"
 
 
-Texture::Texture(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState)
+Texture::Texture(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* const clearValue)
 {
-	Allocate(desc, initialState);
+	Allocate(desc, initialState, clearValue);
 }
 
-void Texture::Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState)
+void Texture::Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* const clearValue)
 {
 	m_Format = desc->Format;
 	const auto defaultHeap = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
@@ -19,6 +19,6 @@ void Texture::Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STA
 		D3D12_HEAP_FLAG_NONE,
 		desc,
 		initialState,
-		nullptr,
+		clearValue,
 		IID_PPV_ARGS(&m_Resource)));
 }

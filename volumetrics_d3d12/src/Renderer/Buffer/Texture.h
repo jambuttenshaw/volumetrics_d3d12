@@ -10,13 +10,13 @@ class Texture
 {
 public:
 	Texture() = default;
-	Texture(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState);
+	Texture(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* const clearValue = nullptr);
 	~Texture() = default;
 
 	DISALLOW_COPY(Texture);
 	DEFAULT_MOVE(Texture);
 
-	void Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState);
+	void Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* const clearValue = nullptr);
 
 	inline ID3D12Resource* GetResource() const { return m_Resource.Get(); }
 	inline DXGI_FORMAT GetFormat() const { return m_Format; }

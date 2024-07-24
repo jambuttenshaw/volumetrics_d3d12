@@ -52,6 +52,7 @@ public:
 	void EndDraw() const;
 
 	void ClearBackBuffer(const XMFLOAT4& clearColor) const;
+	void SetRenderTargetToBackBuffer(bool useDepth) const;
 	// For copying the output on a UAV into the back buffer
 	void CopyToBackBuffer(ID3D12Resource* resource) const;
 
@@ -154,6 +155,9 @@ private:
 	float m_NearPlane = 0.1f;
 	float m_FarPlane = 100.0f;
 	XMMATRIX m_ProjectionMatrix;
+
+	CD3DX12_VIEWPORT m_Viewport{ };
+	CD3DX12_RECT m_ScissorRect{ };
 
 	// Formats
 	DXGI_FORMAT m_BackBufferFormat;

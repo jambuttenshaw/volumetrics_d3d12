@@ -4,6 +4,8 @@
 #include "D3DGraphicsContext.h"
 #include "Application/Scene.h"
 
+#include "pix3.h"
+
 
 DeferredRenderer::DeferredRenderer()
 {
@@ -14,6 +16,20 @@ DeferredRenderer::DeferredRenderer()
 		D3DGraphicsPipelineDesc psoDesc = {};
 
 		// Set up root parameters
+		CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+		rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
+		rootParameters[1].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
+
+		// Allow input layout and deny unnecessary access to certain pipeline stages
+		psoDesc.NumRootParameters = ARRAYSIZE(rootParameters);
+		psoDesc.RootParameters = rootParameters;
+		psoDesc.RootSignatureFlags =
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_AMPLIFICATION_SHADER_ROOT_ACCESS;
 
 		// Shaders
 		psoDesc.VertexShader.ShaderPath = L"assets/shaders/gbuffer/basic_vs.hlsl";
@@ -37,7 +53,7 @@ DeferredRenderer::DeferredRenderer()
 		psoDesc.Shader = L"assets/shaders/lighting/lighting_pass_cs.hlsl";
 		psoDesc.EntryPoint = L"main";
 
-		m_LightingPipeline.Create(&psoDesc);
+		//m_LightingPipeline.Create(&psoDesc);
 	}
 }
 
@@ -47,6 +63,7 @@ DeferredRenderer::~DeferredRenderer()
 	m_RTVs.Free();
 	m_DSV.Free();
 	m_SRVs.Free();
+	m_UAV.Free();
 }
 
 void DeferredRenderer::OnBackBufferResize()
@@ -54,6 +71,7 @@ void DeferredRenderer::OnBackBufferResize()
 	m_RTVs.Free();
 	m_DSV.Free();
 	m_SRVs.Free();
+	m_UAV.Free();
 
 	CreateResolutionDependentResources();
 }
@@ -65,6 +83,8 @@ void DeferredRenderer::CreateResolutionDependentResources()
 
 	// Allocate render targets
 	D3D12_RESOURCE_DESC desc;
+	D3D12_CLEAR_VALUE clearValue;
+
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	desc.Alignment = 0;
 	desc.Width = g_D3DGraphicsContext->GetClientWidth();
@@ -76,16 +96,32 @@ void DeferredRenderer::CreateResolutionDependentResources()
 	desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
+	clearValue.Color[0] = 0.0f;
+	clearValue.Color[1] = 0.0f;
+	clearValue.Color[2] = 0.0f;
+	clearValue.Color[3] = 0.0f;
+
 	for (UINT rt = 0; rt < s_RTCount; rt++)
 	{
 		desc.Format = m_RTFormats[rt];
-		m_RenderTargets[rt].Allocate(&desc, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		clearValue.Format = m_RTFormats[rt];
+		m_RenderTargets[rt].Allocate(&desc, D3D12_RESOURCE_STATE_RENDER_TARGET, &clearValue);
 	}
 
 	// Allocate depth buffer
 	desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 	desc.Format = m_DSVFormat;
-	m_DepthBuffer.Allocate(&desc, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+
+	clearValue.Format = m_DSVFormat;
+	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Stencil = 0;
+
+	m_DepthBuffer.Allocate(&desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue);
+
+	// Allocate output resource
+	desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+	desc.Format = m_OutputFormat;
+	m_LitOutput.Allocate(&desc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 	// Create RTVs and DSVs
 	m_RTVs = g_D3DGraphicsContext->GetRTVHeap()->Allocate(s_RTCount);
@@ -137,8 +173,21 @@ void DeferredRenderer::CreateResolutionDependentResources()
 			device->CreateShaderResourceView(m_RenderTargets.at(rt).GetResource(), &srvDesc, m_SRVs.GetCPUHandle(rt));
 		}
 
-		srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
 		device->CreateShaderResourceView(m_DepthBuffer.GetResource(), &srvDesc, m_SRVs.GetCPUHandle(GB_SRV_Depth));
+	}
+
+	// Allocate UAV
+	m_UAV = g_D3DGraphicsContext->GetSRVHeap()->Allocate(1);
+	ASSERT(m_UAV.IsValid(), "Failed to alloc");
+	{
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+		uavDesc.Format = m_OutputFormat;
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uavDesc.Texture2D.MipSlice = 0;
+		uavDesc.Texture2D.PlaneSlice = 0;
+
+		device->CreateUnorderedAccessView(m_LitOutput.GetResource(), nullptr, &uavDesc, m_UAV.GetCPUHandle());
 	}
 }
 
@@ -148,9 +197,12 @@ void DeferredRenderer::Setup(const Scene& scene)
 }
 
 
-void DeferredRenderer::RenderGeometryBuffer()
+void DeferredRenderer::Render()
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+	std::vector<D3D12_RESOURCE_BARRIER> barriers;
+
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(1), "Clear GBuffer");
 
 	// Clear g buffer
 	for (UINT rt = 0; rt < s_RTCount; rt++)
@@ -165,14 +217,24 @@ void DeferredRenderer::RenderGeometryBuffer()
 	const auto dsv = m_DSV.GetCPUHandle();
 	commandList->OMSetRenderTargets(s_RTCount, &firstRTV, true, &dsv);
 
+	PIXEndEvent(commandList);
 
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(2), "Geometry Pass");
+	
 	// Perform drawing into g-buffer
 	m_GBufferPipeline.Bind(commandList);
+
+	commandList->SetGraphicsRootConstantBufferView(1, g_D3DGraphicsContext->GetPassCBAddress());
+
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	
 
 	for (const auto& geometryInstance : m_Scene->GetAllGeometryInstances())
 	{
 		// Set material root parameters
+		commandList->SetGraphicsRootConstantBufferView(0, m_Scene->GetObjectCBAddress(geometryInstance.GetInstanceID()));
+
+		// Bind geometry
 		const TriangleGeometry* geometry = geometryInstance.GetGeometry();
 
 		commandList->IASetIndexBuffer(&geometry->IndexBufferView);
@@ -180,13 +242,55 @@ void DeferredRenderer::RenderGeometryBuffer()
 
 		commandList->DrawIndexedInstanced(geometry->IndexBuffer.GetElementCount(), 1, 0, 0, 0);
 	}
-
+	/*
 	// Switch resource states
 	{
-		
+		// Switch render targets
+		for (UINT rt = 0; rt < s_RTCount; rt++)
+		{
+			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+				m_RenderTargets.at(rt).GetResource(),
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+		}
+		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			m_DepthBuffer.GetResource(),
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+		commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
 	}
 
-	// Perform lighting pass
+	PIXEndEvent(commandList);
+
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(3), "Lighting Pass");
+
+
+	// Lighting pass
+	//m_LightingPipeline.Bind(commandList);
+
+	// Set root arguments
+
+	// Dispatch lighting pass
+
+
+	// Switch resource states back
+	{
+		for (UINT rt = 0; rt < s_RTCount; rt++)
+		{
+			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+				m_RenderTargets.at(rt).GetResource(),
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, 
+				D3D12_RESOURCE_STATE_RENDER_TARGET));
+		}
+		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+			m_DepthBuffer.GetResource(),
+			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_DEPTH_WRITE));
+		commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
+	}
+	*/
+
+	PIXEndEvent(commandList);
 
 }
 

@@ -21,7 +21,7 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 	, m_ClientHeight(height)
 	, m_Flags(flags)
 	, m_BackBufferFormat(DXGI_FORMAT_R8G8B8A8_UNORM)
-	, m_DepthStencilFormat(DXGI_FORMAT_D32_FLOAT)
+	, m_DepthStencilFormat(DXGI_FORMAT_D24_UNORM_S8_UINT)
 {
 	ASSERT(!g_D3DGraphicsContext, "Cannot initialize a second graphics context!");
 	g_D3DGraphicsContext = this;
@@ -75,6 +75,9 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 	ASSERT(m_ImGuiResources.IsValid(), "Failed to alloc");
 
 	CreateProjectionMatrix();
+
+	m_Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_ClientWidth), static_cast<float>(m_ClientHeight));
+	m_ScissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_ClientWidth), static_cast<LONG>(m_ClientHeight));
 
 	// Close the command list and execute it to begin the initial GPU setup
 	// The main loop expects the command list to be closed anyway
@@ -184,9 +187,8 @@ void D3DGraphicsContext::StartDraw(const PassConstantBuffer& passCB) const
 	const auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_RenderTargets[m_FrameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	m_CommandList->ResourceBarrier(1, &barrier);
 
-	const D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = m_RTVs.GetCPUHandle(m_FrameIndex);
-	const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = m_DSV.GetCPUHandle();
-	m_CommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+	m_CommandList->RSSetViewports(1, &m_Viewport);
+	m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 
 	// Setup descriptor heaps
 	ID3D12DescriptorHeap* ppHeaps[] = { m_SRVHeap->GetHeap(), m_SamplerHeap->GetHeap() };
@@ -226,9 +228,16 @@ void D3DGraphicsContext::ClearBackBuffer(const XMFLOAT4& clearColor) const
 	PIXEndEvent();
 }
 
+void D3DGraphicsContext::SetRenderTargetToBackBuffer(bool useDepth) const
+{
+	const D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = m_RTVs.GetCPUHandle(m_FrameIndex);
+	const D3D12_CPU_DESCRIPTOR_HANDLE dsvHandle = m_DSV.GetCPUHandle();
+	m_CommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, useDepth ? &dsvHandle : nullptr);
+}
+
 void D3DGraphicsContext::CopyToBackBuffer(ID3D12Resource* resource) const
 {
-	PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(71), "Copy Raytracing Output");
+	PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(71), "Copy to Back Buffer");
 
 	const auto renderTarget = m_RenderTargets[m_FrameIndex].Get();
 
@@ -457,8 +466,8 @@ void D3DGraphicsContext::CreateSwapChain()
 
 void D3DGraphicsContext::CreateDescriptorHeaps()
 {
-	m_RTVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, s_FrameCount, true);
-	m_DSVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 1, true);
+	m_RTVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, s_FrameCount + 16, true);
+	m_DSVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16, true);
 
 	// SRV/CBV/UAV heap
 	constexpr UINT Count = 256;

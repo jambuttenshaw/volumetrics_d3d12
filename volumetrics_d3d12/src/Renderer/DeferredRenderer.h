@@ -4,6 +4,8 @@
 #include "Buffer/Texture.h"
 
 
+using namespace DirectX;
+
 class Scene;
 
 
@@ -40,7 +42,9 @@ public:
 	// Rendering
 
 	// Perform g buffer population pass
-	void RenderGeometryBuffer();
+	void Render();
+
+	ID3D12Resource* GetOutputResource() const { return m_LitOutput.GetResource(); }
 
 private:
 	void CreateResolutionDependentResources();
@@ -57,18 +61,22 @@ private:
 	constexpr inline static UINT64 s_RTCount = 3; // The number of RTs in the gbuffer
 	std::array<DXGI_FORMAT, s_RTCount> m_RTFormats = {
 		DXGI_FORMAT_R11G11B10_FLOAT, // albedo
-		DXGI_FORMAT_R32G32B32_FLOAT, // normal
+		DXGI_FORMAT_R11G11B10_FLOAT, // normal
 		DXGI_FORMAT_R16G16_UNORM	 // roughness + metallic
 	};
-	DXGI_FORMAT m_DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	DXGI_FORMAT m_DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+	DXGI_FORMAT m_OutputFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	// Resources
 	std::array<Texture, s_RTCount> m_RenderTargets;
 	Texture m_DepthBuffer;
+	// A texture to hold the output of the lighting pass
+	Texture m_LitOutput;
 
 	DescriptorAllocation m_RTVs;
 	DescriptorAllocation m_DSV;
 	DescriptorAllocation m_SRVs;
+	DescriptorAllocation m_UAV;
 
 	// Pipeline states
 	D3DGraphicsPipeline m_GBufferPipeline;

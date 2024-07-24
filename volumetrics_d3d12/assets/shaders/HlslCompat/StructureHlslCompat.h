@@ -41,6 +41,12 @@ struct PassConstantBuffer
 	XMFLOAT2 Padding;
 };
 
+// Per-object data per frame
+struct ObjectConstantBuffer
+{
+	XMMATRIX WorldMat;
+};
+
 
 // Lighting structures
 struct LightGPUData
