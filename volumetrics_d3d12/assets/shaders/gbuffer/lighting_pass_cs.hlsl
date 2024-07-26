@@ -5,14 +5,24 @@
 #include "../HlslCompat/StructureHlslCompat.h"
 
 #include "../include/lighting_helper.hlsli"
+#include "../include/lighting_ibl.hlsli"
 
-ConstantBuffer<PassConstantBuffer> g_PassCB : register(b0);
+
+ConstantBuffer<PassConstantBuffer> g_PassCB : register(b0, space0);
 
 // G-buffer resources
-Texture2D<float3> g_Albedo : register(t0);
-Texture2D<float3> g_Normal : register(t1);
-Texture2D<float2> g_RoughnessMetallic : register(t2);
-Texture2D<float> g_Depth : register(t3);
+Texture2D<float3> g_Albedo : register(t0, space0);
+Texture2D<float3> g_Normal : register(t1, space0);
+Texture2D<float2> g_RoughnessMetallic : register(t2, space0);
+Texture2D<float> g_Depth : register(t3, space0);
+
+// Environmental lighting resources
+TextureCube g_IrradianceMap : register(t0, space1);
+Texture2D g_BRDFIntegrationMap : register(t1, space1); 
+TextureCube g_PrefilteredEnvironmentMap : register(t2, space1);
+
+SamplerState g_EnvironmentSampler : register(s0, space1);
+SamplerState g_BRDFIntegrationSampler : register(s1, space1);
  
 // Lighting output
 RWTexture2D<float4> g_LitOutput : register(u0);
@@ -66,7 +76,20 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y) * el * saturate(dot(normal, l));
 	brdf /= (1.0f + 0.1f * d + 0.01f * d);
 
-	float3 ambient = float3(0.01f, 0.01f, 0.01f);
+	const float3 ambient = calculateAmbientLighting(
+		normal,
+		v,
+		albedo,
+		f0,
+		roughnessMetallic.x, 
+		roughnessMetallic.y,
+		g_IrradianceMap,
+		g_BRDFIntegrationMap,
+		g_PrefilteredEnvironmentMap,
+		g_EnvironmentSampler,
+		g_BRDFIntegrationSampler
+	);
+
 	brdf += ambient;
 
 	float3 color = pow(brdf, 0.4545f);

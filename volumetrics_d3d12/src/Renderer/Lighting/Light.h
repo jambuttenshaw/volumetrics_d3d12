@@ -54,9 +54,10 @@ public:
 public:
 	// Get resources
 	inline Texture* GetEnvironmentMap() const { return m_EnvironmentMap.get(); }
+	inline D3D12_GPU_DESCRIPTOR_HANDLE GetEnvironmentMapSRV() const { return m_GlobalLightingSRVs.GetGPUHandle(EnvironmentMapSRV); }
 
 	// Get descriptors
-	inline D3D12_GPU_DESCRIPTOR_HANDLE GetSRVTable() const { return m_GlobalLightingSRVs.GetGPUHandle(); }
+	inline D3D12_GPU_DESCRIPTOR_HANDLE GetSRVTable() const { return m_GlobalLightingSRVs.GetGPUHandle(IrradianceMapSRV); }
 	inline D3D12_GPU_DESCRIPTOR_HANDLE GetSamplerTable() const { return m_SamplerDescriptors.GetGPUHandle(); }
 
 private:

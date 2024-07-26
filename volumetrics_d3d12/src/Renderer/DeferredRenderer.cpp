@@ -37,8 +37,10 @@ namespace LightingPassRootSignature
 	enum Parameters
 	{
 		PassConstantBuffer = 0,
-		GBuffer, // GBuffer SRVs are sequential
-		LitOutput,
+		GBuffer,				// GBuffer SRVs are sequential
+		EnvironmentMaps,		// Environment maps are sequential
+		EnvironmentSamplers,	// Environment samplers are sequential
+		OutputResource,
 		Count
 	};
 }
@@ -74,10 +76,10 @@ DeferredRenderer::DeferredRenderer()
 		}
 
 		// Shaders
-		psoDesc.VertexShader.ShaderPath = L"assets/shaders/gbuffer/basic_vs.hlsl";
+		psoDesc.VertexShader.ShaderPath = L"assets/shaders/gbuffer/geometry_pass_vs.hlsl";
 		psoDesc.VertexShader.EntryPoint = L"main";
 
-		psoDesc.PixelShader.ShaderPath = L"assets/shaders/gbuffer/basic_ps.hlsl";
+		psoDesc.PixelShader.ShaderPath = L"assets/shaders/gbuffer/geometry_pass_ps.hlsl";
 		psoDesc.PixelShader.EntryPoint = L"main";
 
 		// Add all render target formats to the description
@@ -133,20 +135,29 @@ DeferredRenderer::DeferredRenderer()
 	{
 		D3DComputePipelineDesc psoDesc = {};
 
-		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
 
 		// All descriptors in the g-buffer are contiguous
 		// There will be one for each render target plus the depth buffer
 		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, s_RTCount + 1, 0, 0);
+
+		// Environment lighting descriptors
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 1);
+
+		// Environment samplers
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0, 1);
+
 		// Output UAV
-		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
 
 
 		// Set up root parameters
 		CD3DX12_ROOT_PARAMETER1 rootParameters[LightingPassRootSignature::Count];
 		rootParameters[LightingPassRootSignature::PassConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE);
 		rootParameters[LightingPassRootSignature::GBuffer].InitAsDescriptorTable(1, &ranges[0]);
-		rootParameters[LightingPassRootSignature::LitOutput].InitAsDescriptorTable(1, &ranges[1]);
+		rootParameters[LightingPassRootSignature::EnvironmentMaps].InitAsDescriptorTable(1, &ranges[1]);
+		rootParameters[LightingPassRootSignature::EnvironmentSamplers].InitAsDescriptorTable(1, &ranges[2]);
+		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[3]);
 
 		psoDesc.NumRootParameters = LightingPassRootSignature::Count;
 		psoDesc.RootParameters = rootParameters;
@@ -370,7 +381,6 @@ void DeferredRenderer::Render() const
 			m_DepthBuffer.GetResource(),
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 			D3D12_RESOURCE_STATE_DEPTH_WRITE));
-		commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
 		FlushBarriers();
 	}
 }
@@ -446,7 +456,7 @@ void DeferredRenderer::RenderSkybox() const
 	constexpr FullscreenQuadProperties quadProperties{ 0.9999f };
 	commandList->SetGraphicsRoot32BitConstants(SkyboxPassRootSignature::QuadProperties, SizeOfInUint32(quadProperties), &quadProperties, 0);
 
-	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMap, m_LightManager->GetSRVTable());
+	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMap, m_LightManager->GetEnvironmentMapSRV());
 	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMapSampler, m_LightManager->GetSamplerTable());
 
 	// Triangle-strip for full-screen quad
@@ -472,7 +482,9 @@ void DeferredRenderer::LightingPass() const
 	// Set root arguments
 	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::GBuffer, m_SRVs.GetGPUHandle());
-	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::LitOutput, m_OutputUAV.GetGPUHandle());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, m_LightManager->GetSRVTable());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentSamplers, m_LightManager->GetSamplerTable());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());
 
 	// Dispatch lighting pass
 	const UINT clientWidth = g_D3DGraphicsContext->GetClientWidth();

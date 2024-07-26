@@ -59,24 +59,19 @@ float3 calculateLighting(
 	const float3 brdf = ggx_brdf(v, l, n, material.Albedo, f0, material.Roughness, material.Metalness) * el * saturate(dot(n, l));
 	lo += max(brdf, 0.0f) * !inShadow;
 
-	float3 ambient = float3(0.0f, 0.0f, 0.0f);
-
-	if (!(flags & RENDER_FLAG_DISABLE_IBL))
-	{
-		ambient = calculateAmbientLighting(
-			n,
-			v,
-			material.Albedo,
-			f0,
-			material.Roughness,
-			material.Metalness,
-			irradianceMap,
-			brdfMap,
-			prefilterMap,
-			environmentSampler,
-			brdfSampler
-		);
-	}
+	const float3 ambient = calculateAmbientLighting(
+		n,
+		v,
+		material.Albedo,
+		f0,
+		material.Roughness,
+		material.Metalness,
+		irradianceMap,
+		brdfMap,
+		prefilterMap,
+		environmentSampler,
+		brdfSampler
+	);
 
 	return ambient + lo;
 }
