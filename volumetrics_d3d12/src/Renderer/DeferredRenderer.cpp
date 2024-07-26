@@ -7,6 +7,30 @@
 #include "pix3.h"
 
 
+// Root signatures
+namespace GeometryPassRootSignature
+{
+	enum Parameters
+	{
+		ObjectConstantBuffer = 0,
+		PassConstantBuffer,
+		Count
+	};
+}
+
+
+namespace LightingPassRootSignature
+{
+	enum Parameters
+	{
+		PassConstantBuffer = 0,
+		GBuffer, // GBuffer SRVs are sequential
+		LitOutput,
+		Count
+	};
+}
+
+
 DeferredRenderer::DeferredRenderer()
 {
 	CreateResolutionDependentResources();
@@ -16,12 +40,12 @@ DeferredRenderer::DeferredRenderer()
 		D3DGraphicsPipelineDesc psoDesc = {};
 
 		// Set up root parameters
-		CD3DX12_ROOT_PARAMETER1 rootParameters[2];
-		rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
-		rootParameters[1].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
+		CD3DX12_ROOT_PARAMETER1 rootParameters[GeometryPassRootSignature::Count];
+		rootParameters[GeometryPassRootSignature::ObjectConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
+		rootParameters[GeometryPassRootSignature::PassConstantBuffer].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
 
 		// Allow input layout and deny unnecessary access to certain pipeline stages
-		psoDesc.NumRootParameters = ARRAYSIZE(rootParameters);
+		psoDesc.NumRootParameters = GeometryPassRootSignature::Count;
 		psoDesc.RootParameters = rootParameters;
 		psoDesc.RootSignatureFlags =
 			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
@@ -48,12 +72,28 @@ DeferredRenderer::DeferredRenderer()
 	{
 		D3DComputePipelineDesc psoDesc = {};
 
-		// Set up root parameters
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
 
-		psoDesc.Shader = L"assets/shaders/lighting/lighting_pass_cs.hlsl";
+		// All descriptors in the g-buffer are contiguous
+		// There will be one for each render target plus the depth buffer
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, s_RTCount + 1, 0, 0);
+		// Output UAV
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+
+
+		// Set up root parameters
+		CD3DX12_ROOT_PARAMETER1 rootParameters[LightingPassRootSignature::Count];
+		rootParameters[LightingPassRootSignature::PassConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE);
+		rootParameters[LightingPassRootSignature::GBuffer].InitAsDescriptorTable(1, &ranges[0]);
+		rootParameters[LightingPassRootSignature::LitOutput].InitAsDescriptorTable(1, &ranges[1]);
+
+		psoDesc.NumRootParameters = LightingPassRootSignature::Count;
+		psoDesc.RootParameters = rootParameters;
+
+		psoDesc.Shader = L"assets/shaders/gbuffer/lighting_pass_cs.hlsl";
 		psoDesc.EntryPoint = L"main";
 
-		//m_LightingPipeline.Create(&psoDesc);
+		m_LightingPipeline.Create(&psoDesc);
 	}
 }
 
@@ -224,15 +264,14 @@ void DeferredRenderer::Render()
 	// Perform drawing into g-buffer
 	m_GBufferPipeline.Bind(commandList);
 
-	commandList->SetGraphicsRootConstantBufferView(1, g_D3DGraphicsContext->GetPassCBAddress());
-
+	commandList->SetGraphicsRootConstantBufferView(GeometryPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	
 
 	for (const auto& geometryInstance : m_Scene->GetAllGeometryInstances())
 	{
 		// Set material root parameters
-		commandList->SetGraphicsRootConstantBufferView(0, m_Scene->GetObjectCBAddress(geometryInstance.GetInstanceID()));
+		commandList->SetGraphicsRootConstantBufferView(GeometryPassRootSignature::ObjectConstantBuffer, m_Scene->GetObjectCBAddress(geometryInstance.GetInstanceID()));
 
 		// Bind geometry
 		const TriangleGeometry* geometry = geometryInstance.GetGeometry();
@@ -242,7 +281,7 @@ void DeferredRenderer::Render()
 
 		commandList->DrawIndexedInstanced(geometry->IndexBuffer.GetElementCount(), 1, 0, 0, 0);
 	}
-	/*
+
 	// Switch resource states
 	{
 		// Switch render targets
@@ -258,6 +297,7 @@ void DeferredRenderer::Render()
 			D3D12_RESOURCE_STATE_DEPTH_WRITE,
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
 		commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
+		barriers.clear();
 	}
 
 	PIXEndEvent(commandList);
@@ -266,12 +306,21 @@ void DeferredRenderer::Render()
 
 
 	// Lighting pass
-	//m_LightingPipeline.Bind(commandList);
+	m_LightingPipeline.Bind(commandList);
 
 	// Set root arguments
+	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::GBuffer, m_SRVs.GetGPUHandle());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::LitOutput, m_UAV.GetGPUHandle());
 
 	// Dispatch lighting pass
+	const UINT clientWidth = g_D3DGraphicsContext->GetClientWidth();
+	const UINT clientHeight = g_D3DGraphicsContext->GetClientHeight();
+	// Uses 8 threads per group (fast ceiling of integer division)
+	const UINT threadGroupX = (clientWidth + 7) / 8;
+	const UINT threadGroupY = (clientHeight + 7) / 8;
 
+	commandList->Dispatch(threadGroupX, threadGroupY, 1);
 
 	// Switch resource states back
 	{
@@ -287,8 +336,8 @@ void DeferredRenderer::Render()
 			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
 			D3D12_RESOURCE_STATE_DEPTH_WRITE));
 		commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
+		barriers.clear();
 	}
-	*/
 
 	PIXEndEvent(commandList);
 

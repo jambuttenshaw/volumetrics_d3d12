@@ -15,7 +15,7 @@ PSOutput main(VSToPS input)
 	PSOutput output;
 
 	output.Albedo = float3(1.0f, 0.2f, 0.2f);
-	output.Normal = 0.5f * input.Normal + 0.5f;
+	output.Normal = 0.5f * normalize(input.Normal) + 0.5f;
 	output.RoughnessMetalness = float2(0.1f, 0.0f);
 
 	return output;
