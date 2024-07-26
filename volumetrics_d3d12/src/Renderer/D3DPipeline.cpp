@@ -58,10 +58,10 @@ void D3DGraphicsPipeline::Create(D3DGraphicsPipelineDesc* desc)
 		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 		psoDesc.SampleMask = UINT_MAX;
 		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
+		psoDesc.DepthStencilState = desc->DepthStencilDesc;
 
-		psoDesc.InputLayout.NumElements = ARRAYSIZE(Vertex::InputLayout);
-		psoDesc.InputLayout.pInputElementDescs = Vertex::InputLayout;
+		psoDesc.InputLayout.NumElements = static_cast<UINT>(desc->InputLayout.size());
+		psoDesc.InputLayout.pInputElementDescs = desc->InputLayout.data();
 
 		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 

@@ -17,12 +17,16 @@ struct D3DGraphicsPipelineDesc
 	D3D12_ROOT_PARAMETER1* RootParameters = nullptr;
 	D3D12_ROOT_SIGNATURE_FLAGS RootSignatureFlags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 
+	std::vector<D3D12_INPUT_ELEMENT_DESC> InputLayout;
+
 	ShaderDesc VertexShader;
 	ShaderDesc PixelShader;
 
+	std::vector<std::wstring> Defines;
+
 	std::vector<DXGI_FORMAT> RenderTargetFormats;
 
-	std::vector<std::wstring> Defines;
+	D3D12_DEPTH_STENCIL_DESC DepthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 };
 
 struct D3DComputePipelineDesc

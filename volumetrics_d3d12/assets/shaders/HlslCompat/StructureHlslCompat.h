@@ -48,6 +48,14 @@ struct ObjectConstantBuffer
 };
 
 
+// Properties used for full-screen quad raster passes
+struct FullscreenQuadProperties
+{
+	// Which depth (0-1) should the fullscreen quad be placed at
+	float Depth;
+};
+
+
 // Lighting structures
 struct LightGPUData
 {

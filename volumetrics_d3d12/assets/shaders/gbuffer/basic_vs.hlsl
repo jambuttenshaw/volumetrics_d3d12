@@ -10,9 +10,9 @@ ConstantBuffer<ObjectConstantBuffer> g_ObjectCB : register(b0);
 ConstantBuffer<PassConstantBuffer> g_PassCB : register(b1);
 
 
-VSToPS main(VSInput input)
+GeometryPass_VSToPS main(GeometryPass_VSInput input)
 {
-	VSToPS output;
+	GeometryPass_VSToPS output;
 
 	const float4 worldPos = mul(input.Position, g_ObjectCB.WorldMat);
 	output.Position = mul(worldPos, g_PassCB.ViewProj);

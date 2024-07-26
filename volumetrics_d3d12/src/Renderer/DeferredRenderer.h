@@ -4,6 +4,7 @@
 #include "Buffer/Texture.h"
 
 
+class LightManager;
 using namespace DirectX;
 
 class Scene;
@@ -35,23 +36,31 @@ public:
 	DEFAULT_MOVE(DeferredRenderer)
 
 
-	void Setup(const Scene& scene);
+	void SetScene(const Scene& scene, const LightManager& lightManager);
 	// Resize gbuffer resources to match the resolution of the back buffer
 	void OnBackBufferResize();
 
 	// Rendering
 
 	// Perform g buffer population pass
-	void Render();
+	void Render() const;
 
-	ID3D12Resource* GetOutputResource() const { return m_LitOutput.GetResource(); }
+	ID3D12Resource* GetOutputResource() const { return m_OutputResource.GetResource(); }
 
 private:
 	void CreateResolutionDependentResources();
 
+	// Sub-stages in rendering pipeline
+	void ClearGBuffer() const;
+	void GeometryPass() const;
+	void RenderSkybox() const;
+	void LightingPass() const;
+
 private:
 	// The scene to render
 	const Scene* m_Scene = nullptr;
+	// Light manager
+	const LightManager* m_LightManager = nullptr;
 
 	// G-buffer resources
 	// The deferred renderer owns:
@@ -71,15 +80,20 @@ private:
 	std::array<Texture, s_RTCount> m_RenderTargets;
 	Texture m_DepthBuffer;
 	// A texture to hold the output of the lighting pass
-	Texture m_LitOutput;
+	Texture m_OutputResource;
 
 	DescriptorAllocation m_RTVs;
 	DescriptorAllocation m_DSV;
 	DescriptorAllocation m_SRVs;
-	DescriptorAllocation m_UAV;
+
+	// Output resource
+	DescriptorAllocation m_OutputUAV;
+	DescriptorAllocation m_OutputRTV;
 
 	// Pipeline states
-	D3DGraphicsPipeline m_GBufferPipeline;
+	D3DGraphicsPipeline m_GeometryPassPipeline;
 	D3DComputePipeline m_LightingPipeline;
+
+	D3DGraphicsPipeline m_SkyboxPipeline;
 
 };

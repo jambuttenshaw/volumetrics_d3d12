@@ -10,9 +10,9 @@ ConstantBuffer<ObjectConstantBuffer> g_ObjectCB : register(b0);
 ConstantBuffer<PassConstantBuffer> g_PassCB : register(b1);
 
 
-PSOutput main(VSToPS input)
+GeometryPass_PSOutput main(GeometryPass_VSToPS input)
 {
-	PSOutput output;
+	GeometryPass_PSOutput output;
 
 	output.Albedo = float3(1.0f, 0.2f, 0.2f);
 	output.Normal = 0.5f * normalize(input.Normal) + 0.5f;

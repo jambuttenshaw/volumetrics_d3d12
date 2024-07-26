@@ -124,7 +124,7 @@ void D3DApplication::OnInit()
 
 	m_TextureLoader = std::make_unique<TextureLoader>();
 
-	// Setup camera
+	// SetScene camera
 	m_Camera.SetPosition(XMVECTOR{ 0.0f, 0.0f, -10.0f });
 	m_Timer.Reset();
 
@@ -142,7 +142,7 @@ void D3DApplication::OnInit()
 
 	m_Scene = std::make_unique<VolumetricScene>(this, 1);
 
-	m_DeferredRenderer->Setup(*m_Scene);
+	m_DeferredRenderer->SetScene(*m_Scene, *m_LightManager);
 
 	// Load environment map
 	{
@@ -357,7 +357,7 @@ void D3DApplication::InitImGui()
 		m_Fonts[fontSize] = io.Fonts->AddFontFromFileTTF("assets/fonts/Cousine-Regular.ttf", static_cast<float>(fontSize));
 	io.FontDefault = m_Fonts[m_FontSize];
 
-	// Setup platform and renderer back-ends
+	// SetScene platform and renderer back-ends
 	ImGui_ImplWin32_Init(Win32Application::GetHwnd());
 	ImGui_ImplDX12_Init(m_GraphicsContext->GetDevice(),
 		m_GraphicsContext->GetBackBufferCount(),
@@ -502,6 +502,7 @@ bool D3DApplication::ImGuiApplicationInfo()
 void D3DApplication::OnResized()
 {
 	m_GraphicsContext->Resize(m_Width, m_Height);
+	m_DeferredRenderer->OnBackBufferResize();
 }
 
 
