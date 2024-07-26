@@ -142,7 +142,7 @@ void D3DApplication::OnInit()
 
 	m_Scene = std::make_unique<VolumetricScene>(this, 1);
 
-	m_DeferredRenderer->SetScene(*m_Scene, *m_LightManager);
+	m_DeferredRenderer->SetScene(*m_Scene, *m_LightManager, *m_MaterialManager);
 
 	// Load environment map
 	{
@@ -236,6 +236,7 @@ void D3DApplication::OnRender()
 	// Update constant buffer
 	UpdatePassCB();
 	m_MaterialManager->UploadMaterialData();
+	m_LightManager->CopyStagingBuffer();
 
 	// Perform all queued uploads
 	m_TextureLoader->PerformUploads();
@@ -328,6 +329,9 @@ void D3DApplication::UpdatePassCB()
 
 	m_PassCB.TotalTime = m_Timer.GetTimeSinceReset();
 	m_PassCB.DeltaTime = m_Timer.GetDeltaTime();
+
+	// Lighting constants
+	m_PassCB.LightCount = m_LightManager->GetLightCount();
 }
 
 

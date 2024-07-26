@@ -74,7 +74,7 @@ XMFLOAT3 g_CubemapFaceBitangents[6] = {
 LightManager::LightManager()
 {
 	// Populate default light properties
-	for (auto& light : m_Lights)
+	for (auto& light : m_LightStaging)
 	{
 		light.Direction = { 0.0f, -0.707f, 0.707f };
 		light.Color = { 1.0f, 1.0f, 1.0f };
@@ -101,6 +101,12 @@ LightManager::LightManager()
 
 	CreatePipelines();
 	CreateResources();
+
+	// Create light buffers
+	m_LightBuffers.resize(D3DGraphicsContext::GetBackBufferCount());
+	for (auto& buffer : m_LightBuffers)
+		buffer.Allocate(g_D3DGraphicsContext->GetDevice(), s_MaxLights, 0, L"Light Buffer");
+
 }
 
 LightManager::~LightManager()
@@ -110,6 +116,17 @@ LightManager::~LightManager()
 	m_IrradianceMapFaceUAVs.Free();
 	m_BRDFIntegrationMapUAV.Free();
 	m_PEMFaceUAVs.Free();
+}
+
+
+void LightManager::CopyStagingBuffer() const
+{
+	m_LightBuffers.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).CopyElements(0, static_cast<UINT>(m_LightStaging.size()), m_LightStaging.data());
+}
+
+D3D12_GPU_VIRTUAL_ADDRESS LightManager::GetLightBuffer() const
+{
+	return m_LightBuffers.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).GetAddressOfElement(0);
 }
 
 
@@ -324,13 +341,6 @@ void LightManager::CreateResources()
 }
 
 
-void LightManager::CopyLightData(LightGPUData* dest, size_t maxLights) const
-{
-	const size_t numBytes = sizeof(LightGPUData) * min(maxLights, s_MaxLights);
-	memcpy(dest, m_Lights.data(), numBytes);
-}
-
-
 void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 {
 	// Set up environment map
@@ -483,9 +493,9 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 
 void LightManager::DrawGui()
 {
-	for (size_t i = 0; i < m_Lights.size(); i++)
+	for (size_t i = 0; i < m_LightStaging.size(); i++)
 	{
-		auto& light = m_Lights.at(i);
+		auto& light = m_LightStaging.at(i);
 
 		ImGui::Text("Light %d", i);
 

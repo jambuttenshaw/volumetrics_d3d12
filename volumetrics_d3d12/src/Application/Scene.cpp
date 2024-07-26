@@ -37,6 +37,8 @@ void Scene::PreRender()
 		{
 			ObjectConstantBuffer cbData = {};
 			cbData.WorldMat = XMMatrixTranspose(geometryInstance.GetTransform().GetWorldMatrix());
+			const Material* material = geometryInstance.GetMaterial();
+			cbData.MaterialID = material ? material->GetMaterialID() : 0;
 
 			objectCB.CopyElement(geometryInstance.GetInstanceID(), cbData);
 

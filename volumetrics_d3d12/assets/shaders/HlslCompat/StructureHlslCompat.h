@@ -38,13 +38,17 @@ struct PassConstantBuffer
 	float TotalTime;
 	float DeltaTime;
 
-	XMFLOAT2 Padding;
+	// The number of lights in the light buffer
+	UINT LightCount;
+
+	UINT Padding;
 };
 
 // Per-object data per frame
 struct ObjectConstantBuffer
 {
 	XMMATRIX WorldMat;
+	UINT MaterialID;
 };
 
 
@@ -73,7 +77,6 @@ struct MaterialGPUData
 	XMFLOAT3 Albedo;
 	float Roughness;
 	float Metalness;
-	float Reflectance;
 };
 
 

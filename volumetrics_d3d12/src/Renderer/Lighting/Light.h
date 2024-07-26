@@ -5,6 +5,7 @@
 #include "Renderer/D3DPipeline.h"
 
 #include "Renderer/Buffer/Texture.h"
+#include "Renderer/Buffer/UploadBuffer.h"
 
 using namespace DirectX;
 
@@ -45,7 +46,12 @@ public:
 	DISALLOW_COPY(LightManager);
 	DEFAULT_MOVE(LightManager);
 
-	void CopyLightData(LightGPUData* dest, size_t maxLights) const;
+	// Call each frame to move the latest lighting data to the GPU
+	void CopyStagingBuffer() const;
+	D3D12_GPU_VIRTUAL_ADDRESS GetLightBuffer() const;
+
+	inline UINT GetLightCount() const { return s_MaxLights; }
+
 
 	void ProcessEnvironmentMap(std::unique_ptr<Texture>&& map);
 
@@ -65,14 +71,18 @@ private:
 	void CreateResources();
 
 private:
+	// Light container
 	inline static constexpr size_t s_MaxLights = 1;
+	std::array<LightGPUData, s_MaxLights> m_LightStaging;
 
-	std::array<LightGPUData, s_MaxLights> m_Lights;
+	// Light GPU Resources
+	// This is a buffered resource so that light data can be modified between frames
+	std::vector<UploadBuffer<LightGPUData>> m_LightBuffers;
 
 	// Environmental lighting resources
 	std::unique_ptr<Texture> m_EnvironmentMap;
 
-
+	// Quality controls for environment map
 	UINT m_IrradianceMapResolution = 32;
 	UINT m_BRDFIntegrationMapResolution = 512;
 	UINT m_PEMResolution = 128;
@@ -87,6 +97,7 @@ private:
 	DescriptorAllocation m_GlobalLightingSRVs;
 	DescriptorAllocation m_SamplerDescriptors;
 
+	// TODO: These can be released once processing has finished
 	// UAVs for each face of the irradiance map
 	DescriptorAllocation m_IrradianceMapFaceUAVs;
 	DescriptorAllocation m_BRDFIntegrationMapUAV;

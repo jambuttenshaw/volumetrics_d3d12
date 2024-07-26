@@ -4,7 +4,9 @@
 #include "D3DGraphicsContext.h"
 
 #include "Application/Scene.h"
+
 #include "Lighting/Light.h"
+#include "Lighting/Material.h"
 
 #include "pix3.h"
 
@@ -16,6 +18,7 @@ namespace GeometryPassRootSignature
 	{
 		ObjectConstantBuffer = 0,
 		PassConstantBuffer,
+		MaterialBuffer,
 		Count
 	};
 }
@@ -38,6 +41,7 @@ namespace LightingPassRootSignature
 	{
 		PassConstantBuffer = 0,
 		GBuffer,				// GBuffer SRVs are sequential
+		LightBuffer,			// A buffer of lights in the scene
 		EnvironmentMaps,		// Environment maps are sequential
 		EnvironmentSamplers,	// Environment samplers are sequential
 		OutputResource,
@@ -58,6 +62,7 @@ DeferredRenderer::DeferredRenderer()
 		CD3DX12_ROOT_PARAMETER1 rootParameters[GeometryPassRootSignature::Count];
 		rootParameters[GeometryPassRootSignature::ObjectConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
 		rootParameters[GeometryPassRootSignature::PassConstantBuffer].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_ALL);
+		rootParameters[GeometryPassRootSignature::MaterialBuffer].InitAsShaderResourceView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_PIXEL);
 
 		// Allow input layout and deny unnecessary access to certain pipeline stages
 		psoDesc.NumRootParameters = GeometryPassRootSignature::Count;
@@ -155,6 +160,7 @@ DeferredRenderer::DeferredRenderer()
 		CD3DX12_ROOT_PARAMETER1 rootParameters[LightingPassRootSignature::Count];
 		rootParameters[LightingPassRootSignature::PassConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE);
 		rootParameters[LightingPassRootSignature::GBuffer].InitAsDescriptorTable(1, &ranges[0]);
+		rootParameters[LightingPassRootSignature::LightBuffer].InitAsShaderResourceView(4, 0);
 		rootParameters[LightingPassRootSignature::EnvironmentMaps].InitAsDescriptorTable(1, &ranges[1]);
 		rootParameters[LightingPassRootSignature::EnvironmentSamplers].InitAsDescriptorTable(1, &ranges[2]);
 		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[3]);
@@ -180,10 +186,11 @@ DeferredRenderer::~DeferredRenderer()
 	m_OutputRTV.Free();
 }
 
-void DeferredRenderer::SetScene(const Scene& scene, const LightManager& lightManager)
+void DeferredRenderer::SetScene(const Scene& scene, const LightManager& lightManager, const MaterialManager& materialManager)
 {
 	m_Scene = &scene;
 	m_LightManager = &lightManager;
+	m_MaterialManager = &materialManager;
 }
 
 void DeferredRenderer::OnBackBufferResize()
@@ -416,10 +423,10 @@ void DeferredRenderer::GeometryPass() const
 
 	// Perform drawing into g-buffer
 	m_GeometryPassPipeline.Bind(commandList);
-
-	commandList->SetGraphicsRootConstantBufferView(GeometryPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	commandList->SetGraphicsRootConstantBufferView(GeometryPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
+	commandList->SetGraphicsRootShaderResourceView(GeometryPassRootSignature::MaterialBuffer, m_MaterialManager->GetMaterialBufferAddress());
 
 	for (const auto& geometryInstance : m_Scene->GetAllGeometryInstances())
 	{
@@ -482,6 +489,7 @@ void DeferredRenderer::LightingPass() const
 	// Set root arguments
 	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::GBuffer, m_SRVs.GetGPUHandle());
+	commandList->SetComputeRootShaderResourceView(LightingPassRootSignature::LightBuffer, m_LightManager->GetLightBuffer());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, m_LightManager->GetSRVTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentSamplers, m_LightManager->GetSamplerTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());

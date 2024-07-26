@@ -17,7 +17,6 @@ Material::Material(UINT materialID)
 	m_Data.Albedo = XMFLOAT3(1.0f, 1.0f, 1.0f);
 	m_Data.Roughness = 0.4f;
 	m_Data.Metalness = 0.0f;
-	m_Data.Reflectance = 0.0f;
 }
 
 void Material::SetDirty()
@@ -35,7 +34,6 @@ void Material::DrawGui()
 	dirty |= ImGui::ColorEdit3("Albedo", &m_Data.Albedo.x);
 	dirty |= ImGui::SliderFloat("Roughness", &m_Data.Roughness, 0.05f, 1.0f);
 	dirty |= ImGui::SliderFloat("Metalness", &m_Data.Metalness, 0.0f, 1.0f);
-	dirty |= ImGui::SliderFloat("Reflectance", &m_Data.Reflectance, 0.0f, 1.0f);
 
 	if (dirty) 
 		SetDirty();
@@ -51,7 +49,6 @@ MaterialManager::MaterialManager(size_t capacity)
 		m_Materials.emplace_back(Material{ id });
 	}
 
-	// const UINT alignment = Align(static_cast<UINT>(sizeof(MaterialGPUData)), 16);
 	for (auto& buffer : m_MaterialBuffers)
 	{
 		buffer.Allocate(g_D3DGraphicsContext->GetDevice(), static_cast<UINT>(capacity), 0, L"Material Buffer");

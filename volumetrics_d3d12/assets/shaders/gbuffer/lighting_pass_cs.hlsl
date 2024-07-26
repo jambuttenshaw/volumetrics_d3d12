@@ -16,6 +16,9 @@ Texture2D<float3> g_Normal : register(t1, space0);
 Texture2D<float2> g_RoughnessMetallic : register(t2, space0);
 Texture2D<float> g_Depth : register(t3, space0);
 
+// Scene lighting
+StructuredBuffer<LightGPUData> g_SceneLights : register(t4, space0);
+
 // Environmental lighting resources
 TextureCube g_IrradianceMap : register(t0, space1);
 Texture2D g_BRDFIntegrationMap : register(t1, space1); 
@@ -62,20 +65,25 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	float3 normal = g_Normal[DTid.xy] * 2.0f - 1.0f;
 	float2 roughnessMetallic = g_RoughnessMetallic[DTid.xy];
 
-	float3 lightPos = float3(2.0f, 1.5f, -1.2f);
-
-	float3 l = normalize(lightPos - worldPos.xyz);
-	float3 el = float3(2.0f, 2.0f, 2.0f);
-	float d = length(lightPos - worldPos.xyz);
-
-
 	float3 f0 = float3(0.04f, 0.04f, 0.04f);
 	f0 = lerp(f0, albedo, roughnessMetallic.y);
 
-	// evaluate shading equation
-	float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y) * el * saturate(dot(normal, l));
-	brdf /= (1.0f + 0.1f * d + 0.01f * d);
+	float3 lo = float3(0.0f, 0.0f, 0.0f);
 
+	for (uint i = 0; i < g_PassCB.LightCount; i++)
+	{
+		// Get lighting parameters
+		const LightGPUData light = g_SceneLights[i];
+		float3 l = -light.Direction;
+		float3 el = light.Color * light.Intensity;
+
+		// evaluate shading equation
+		float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y) * el * saturate(dot(normal, l));
+
+		lo += brdf;
+	}
+
+	// Calculate ambient lighting
 	const float3 ambient = calculateAmbientLighting(
 		normal,
 		v,
@@ -90,9 +98,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
 		g_BRDFIntegrationSampler
 	);
 
-	brdf += ambient;
+	lo += ambient;
 
-	float3 color = pow(brdf, 0.4545f);
+	// Gamma correction
+	float3 color = pow(lo, 0.4545f);
 
 	g_LitOutput[DTid.xy] = float4(color, 1.0f);
 

@@ -4,6 +4,7 @@
 #include "Buffer/Texture.h"
 
 
+class MaterialManager;
 class LightManager;
 using namespace DirectX;
 
@@ -36,7 +37,7 @@ public:
 	DEFAULT_MOVE(DeferredRenderer)
 
 
-	void SetScene(const Scene& scene, const LightManager& lightManager);
+	void SetScene(const Scene& scene, const LightManager& lightManager, const MaterialManager& materialManager);
 	// Resize gbuffer resources to match the resolution of the back buffer
 	void OnBackBufferResize();
 
@@ -59,8 +60,9 @@ private:
 private:
 	// The scene to render
 	const Scene* m_Scene = nullptr;
-	// Light manager
+
 	const LightManager* m_LightManager = nullptr;
+	const MaterialManager* m_MaterialManager = nullptr;
 
 	// G-buffer resources
 	// The deferred renderer owns:
