@@ -17,9 +17,10 @@ public:
 	virtual bool DisplayGui() override { return false; }
 
 protected:
-	// A handle to the original cube geometry
 	size_t m_CubeGeometryHandle = -1;
-	// An instance of a cube
+	size_t m_PlaneGeometryHandle = -1;
+
 	GeometryInstance* m_CubeInstance = nullptr;
+	GeometryInstance* m_PlaneInstance = nullptr;
 
 };

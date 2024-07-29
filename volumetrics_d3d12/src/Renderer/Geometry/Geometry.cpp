@@ -6,9 +6,6 @@
 
 std::unique_ptr<TriangleGeometry> GeometryFactory::BuildUnitCube()
 {
-	const auto device = g_D3DGraphicsContext->GetDevice();
-	auto cubeGeometry = std::make_unique<TriangleGeometry>();
-
 	// Geometry definition:
 	Vertex vertices[] = {
 		// Front
@@ -64,25 +61,49 @@ std::unique_ptr<TriangleGeometry> GeometryFactory::BuildUnitCube()
 		20, 22, 23
 	};
 
+	return BuildFromVerticesIndices(ARRAYSIZE(vertices), vertices, ARRAYSIZE(indices), indices);
+}
+
+
+std::unique_ptr<TriangleGeometry> GeometryFactory::BuildPlane()
+{
+	Vertex vertices[] = {
+		{ { -1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } },
+		{ { 1.0f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f } },
+		{ { 1.0f, 0.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
+		{ { -1.0f, 0.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } }
+	};
+	Index indices[] = {
+		0, 1, 2,
+		0, 2, 3
+	};
+
+	return BuildFromVerticesIndices(ARRAYSIZE(vertices), vertices, ARRAYSIZE(indices), indices);
+}
+
+
+std::unique_ptr<TriangleGeometry> GeometryFactory::BuildFromVerticesIndices(UINT vertexCount, const Vertex* vertices, UINT indexCount, const Index* indices)
+{
+	const auto device = g_D3DGraphicsContext->GetDevice();
+	auto geometry = std::make_unique<TriangleGeometry>();
+
 	// Set up vertex buffer
-	constexpr UINT64 vertexCount = ARRAYSIZE(vertices);
-	cubeGeometry->VertexBuffer.Allocate(device, vertexCount, 0, L"Cube Vertex Buffer");
-	cubeGeometry->VertexBuffer.CopyElements(0, vertexCount, vertices);
+	geometry->VertexBuffer.Allocate(device, vertexCount, 0, L"Vertex Buffer");
+	geometry->VertexBuffer.CopyElements(0, vertexCount, vertices);
 
 	// Create vertex buffer view
-	cubeGeometry->VertexBufferView.BufferLocation = cubeGeometry->VertexBuffer.GetAddressOfElement(0);
-	cubeGeometry->VertexBufferView.SizeInBytes = sizeof(Vertex) * vertexCount;
-	cubeGeometry->VertexBufferView.StrideInBytes = sizeof(Vertex);
-		
+	geometry->VertexBufferView.BufferLocation = geometry->VertexBuffer.GetAddressOfElement(0);
+	geometry->VertexBufferView.SizeInBytes = sizeof(Vertex) * vertexCount;
+	geometry->VertexBufferView.StrideInBytes = sizeof(Vertex);
+
 	// Set up index buffer
-	constexpr UINT64 indexCount = ARRAYSIZE(indices);
-	cubeGeometry->IndexBuffer.Allocate(device, indexCount, 0, L"Cube Index Buffer");
-	cubeGeometry->IndexBuffer.CopyElements(0, indexCount, indices);
+	geometry->IndexBuffer.Allocate(device, indexCount, 0, L"Index Buffer");
+	geometry->IndexBuffer.CopyElements(0, indexCount, indices);
 
 	// Create index buffer view
-	cubeGeometry->IndexBufferView.BufferLocation = cubeGeometry->IndexBuffer.GetAddressOfElement(0);
-	cubeGeometry->IndexBufferView.SizeInBytes = sizeof(Index) * indexCount;
-	cubeGeometry->IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
+	geometry->IndexBufferView.BufferLocation = geometry->IndexBuffer.GetAddressOfElement(0);
+	geometry->IndexBufferView.SizeInBytes = sizeof(Index) * indexCount;
+	geometry->IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
 
-	return cubeGeometry;
+	return geometry;
 }

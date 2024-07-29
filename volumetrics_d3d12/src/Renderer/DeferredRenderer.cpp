@@ -90,10 +90,6 @@ DeferredRenderer::DeferredRenderer()
 		// Add all render target formats to the description
 		psoDesc.RenderTargetFormats.insert(psoDesc.RenderTargetFormats.end(), m_RTFormats.begin(), m_RTFormats.end());
 
-		// Disable depth writing
-		//psoDesc.DepthStencilDesc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
-		//psoDesc.DepthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-
 		m_GeometryPassPipeline.Create(&psoDesc);
 	}
 
@@ -132,6 +128,9 @@ DeferredRenderer::DeferredRenderer()
 		// Only a single render target will be used for the skybox pass
 		// It will be the same format as the output resource of the deferred renderer
 		psoDesc.RenderTargetFormats.push_back(m_OutputFormat);
+
+		// Only draw skybox where depth is 1.0f
+		psoDesc.DepthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_EQUAL;
 
 		m_SkyboxPipeline.Create(&psoDesc);
 	}
@@ -460,7 +459,7 @@ void DeferredRenderer::RenderSkybox() const
 	m_SkyboxPipeline.Bind(commandList);
 
 	commandList->SetGraphicsRootConstantBufferView(SkyboxPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
-	constexpr FullscreenQuadProperties quadProperties{ 0.9999f };
+	constexpr FullscreenQuadProperties quadProperties{ 1.0f };
 	commandList->SetGraphicsRoot32BitConstants(SkyboxPassRootSignature::QuadProperties, SizeOfInUint32(quadProperties), &quadProperties, 0);
 
 	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMap, m_LightManager->GetEnvironmentMapSRV());

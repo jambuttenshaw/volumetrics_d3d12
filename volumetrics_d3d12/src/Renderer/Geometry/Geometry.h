@@ -43,4 +43,8 @@ public:
 	GeometryFactory() = delete;
 
 	static std::unique_ptr<TriangleGeometry> BuildUnitCube();
+	static std::unique_ptr<TriangleGeometry> BuildPlane();
+
+	static std::unique_ptr<TriangleGeometry> BuildFromVerticesIndices(UINT vertexCount, const Vertex* vertices, UINT indexCount, const Index* indices);
+
 };

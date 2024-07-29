@@ -48,7 +48,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	// Get depth from buffer
 	float depth = g_Depth[DTid.xy];
-	if (depth >= 0.9999f)
+	if (depth == 1.0f)
 	{
 		return;
 	}

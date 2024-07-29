@@ -6,9 +6,9 @@ using namespace DirectX;
 class Transform
 {
 public:
-	Transform(bool scaleMatrix = false);
-	Transform(const XMFLOAT3& translation, bool scaleMatrix = false);
-	Transform(float x, float y, float z, bool scaleMatrix = false);
+	Transform(bool scaleMatrix = true);
+	Transform(const XMFLOAT3& translation, bool scaleMatrix = true);
+	Transform(float x, float y, float z, bool scaleMatrix = true);
 
 	inline const XMVECTOR& GetTranslation() const { return m_Translation; }
 
@@ -38,6 +38,6 @@ private:
 	float m_Yaw = 0.0f, m_Pitch = 0.0f, m_Roll = 0.0f;
 	float m_Scale = 1.0f;
 
-	bool m_ScaleMatrix = false; // Should scale be put into the matrix?
+	bool m_ScaleMatrix = true; // Should scale be put into the matrix?
 	XMMATRIX m_WorldMat;
 };

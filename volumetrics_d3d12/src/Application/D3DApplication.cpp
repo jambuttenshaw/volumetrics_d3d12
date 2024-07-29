@@ -140,7 +140,7 @@ void D3DApplication::OnInit()
 	m_LightManager = std::make_unique<LightManager>();
 	m_MaterialManager = std::make_unique<MaterialManager>(4);
 
-	m_Scene = std::make_unique<VolumetricScene>(this, 1);
+	m_Scene = std::make_unique<VolumetricScene>(this, 1024);
 
 	m_DeferredRenderer->SetScene(*m_Scene, *m_LightManager, *m_MaterialManager);
 

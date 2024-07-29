@@ -57,6 +57,10 @@ void Transform::SetRoll(float roll)
 void Transform::SetScale(float scale)
 {
 	m_Scale = scale;
+	if (m_ScaleMatrix)
+	{
+		BuildWorldMatrix();
+	}
 }
 
 bool Transform::DrawGui()
