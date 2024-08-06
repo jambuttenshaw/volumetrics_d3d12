@@ -52,7 +52,7 @@ public:
 	void BeginPass(GPUProfilerQueue queue, const char* name);
 	void EndPass(GPUProfilerQueue queue);
 
-	// Index is an optional integer to place at the end of the range name
+	// IndexType is an optional integer to place at the end of the range name
 	// in the case where a range may be called in a loop but should be profiled separately
 	void PushRange(GPUProfilerQueue queue, const char* name, UINT index = 0);
 	void PushRange(GPUProfilerQueue queue, const char* name, ID3D12GraphicsCommandList* commandList, UINT index = 0);

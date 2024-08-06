@@ -255,7 +255,31 @@ void D3DApplication::OnRender()
 	m_DeferredRenderer->Render();
 
 	// Copy output from deferred renderer to back buffer
-	m_GraphicsContext->CopyToBackBuffer(m_DeferredRenderer->GetOutputResource());
+	ID3D12Resource* outputResource = m_DeferredRenderer->GetOutputResource();
+	D3D12_RESOURCE_STATES outputResourceState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	switch(m_GBufferDebugView)
+	{
+	case GB_DBG_Albedo:
+		outputResource = m_DeferredRenderer->GetGBufferResource(0);
+		outputResourceState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		break;
+	case GB_DBG_Normal:
+		outputResource = m_DeferredRenderer->GetGBufferResource(1);
+		outputResourceState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		break;
+	case GB_DBG_RoughnessMetalness:
+		outputResource = m_DeferredRenderer->GetGBufferResource(2);
+		outputResourceState = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		break;
+	case GB_DBG_Depth:
+		outputResource = m_DeferredRenderer->GetDepthBufferResource();
+		outputResourceState = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+		break;
+	case GB_DBG_None:
+	default:
+		break;
+	}
+	m_GraphicsContext->CopyToBackBuffer(outputResource, outputResourceState);
 
 	m_GraphicsContext->SetRenderTargetToBackBuffer(true);
 
@@ -469,6 +493,16 @@ bool D3DApplication::ImGuiApplicationInfo()
 				};
 
 			ImGui::Text("View Mode");
+
+			const char* GBufferDebugViews[] = {
+				"None", "Albedo", "Normal", "Roughness/Metallic", "Depth"
+			};
+			int gbDbg = static_cast<int>(m_GBufferDebugView);
+			if (ImGui::Combo("GBuffer View", &gbDbg, GBufferDebugViews, ARRAYSIZE(GBufferDebugViews)))
+			{
+				m_GBufferDebugView = static_cast<GBufferDebugView>(gbDbg);
+			}
+
 			ImGui::Text("Lighting Options");
 		}
 

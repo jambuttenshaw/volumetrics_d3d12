@@ -63,13 +63,10 @@ struct FullscreenQuadProperties
 // Lighting structures
 struct LightGPUData
 {
-	XMFLOAT3 Direction;
+	XMFLOAT4 Position; // Directional light if w == 0
 
-	float Intensity;
 	XMFLOAT3 Color;
-
-	float Padding;
-
+	float Intensity;
 };
 
 struct MaterialGPUData

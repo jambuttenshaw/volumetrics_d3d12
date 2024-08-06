@@ -6,7 +6,7 @@
 using namespace DirectX;
 
 
-struct Vertex
+struct VertexType
 {
 	XMFLOAT3 Position;
 	XMFLOAT3 Normal;
@@ -17,7 +17,7 @@ struct Vertex
 	};
 };
 
-typedef UINT16 Index;
+typedef UINT16 IndexType;
 
 
 struct TriangleGeometry
@@ -29,8 +29,8 @@ struct TriangleGeometry
 	DEFAULT_MOVE(TriangleGeometry)
 
 	// TODO: Allow uploading of resources from upload heap to default
-	UploadBuffer<Vertex> VertexBuffer;
-	UploadBuffer<Index> IndexBuffer;
+	UploadBuffer<VertexType> VertexBuffer;
+	UploadBuffer<IndexType> IndexBuffer;
 
 	D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView;
@@ -44,7 +44,8 @@ public:
 
 	static std::unique_ptr<TriangleGeometry> BuildUnitCube();
 	static std::unique_ptr<TriangleGeometry> BuildPlane();
+	static std::unique_ptr<TriangleGeometry> BuildSphere(float radius, UINT segments, UINT slices);
 
-	static std::unique_ptr<TriangleGeometry> BuildFromVerticesIndices(UINT vertexCount, const Vertex* vertices, UINT indexCount, const Index* indices);
+	static std::unique_ptr<TriangleGeometry> BuildFromVerticesIndices(UINT vertexCount, const VertexType* vertices, UINT indexCount, const IndexType* indices);
 
 };

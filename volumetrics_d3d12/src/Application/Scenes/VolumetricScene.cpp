@@ -13,19 +13,28 @@ VolumetricScene::VolumetricScene(D3DApplication* application, UINT maxGeometryIn
 	// Populate scene
 	m_CubeGeometryHandle = AddGeometry(GeometryFactory::BuildUnitCube());
 	m_PlaneGeometryHandle = AddGeometry(GeometryFactory::BuildPlane());
+	m_SphereGeometryHandle = AddGeometry(GeometryFactory::BuildSphere(1.0f, 20, 20));
 
 	m_CubeInstance = CreateGeometryInstance(m_CubeGeometryHandle);
 	m_PlaneInstance = CreateGeometryInstance(m_PlaneGeometryHandle);
+	m_SphereInstance = CreateGeometryInstance(m_SphereGeometryHandle);
 
-	Transform planeTransform{ { 0.0f, -1.0f, 0.0f } };
-	planeTransform.SetScale(4.0f);
-	m_PlaneInstance->SetTransform(planeTransform);
+	{
+		Transform cubeTransform{ { -4.0f, -4.0f, 0.0f } };
+		cubeTransform.SetScale(2.0f);
+		m_CubeInstance->SetTransform(cubeTransform);
+	}
 
-	const auto mat = m_Application->GetMaterialManager()->GetMaterial(1);
-	mat->SetAlbedo({ 0.0f, 0.0f, 0.0f });
-	mat->SetRoughness(1.0f);
-		
-	m_PlaneInstance->SetMaterial(mat);
+	{
+		Transform planeTransform{ { 4.0f, -1.0f, 0.0f } };
+		planeTransform.SetScale(2.0f);
+		m_PlaneInstance->SetTransform(planeTransform);
+	}
+
+	{
+		Transform sphereTransform{ { 0.0f, 2.0f, 2.0f } };
+		m_SphereInstance->SetTransform(sphereTransform);
+	}
 }
 
 void VolumetricScene::OnUpdate(float deltaTime)

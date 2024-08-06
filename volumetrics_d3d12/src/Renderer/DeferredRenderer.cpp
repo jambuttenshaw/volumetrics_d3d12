@@ -75,7 +75,7 @@ DeferredRenderer::DeferredRenderer()
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_AMPLIFICATION_SHADER_ROOT_ACCESS;
 
-		for (const auto& element : Vertex::InputLayout)
+		for (const auto& element : VertexType::InputLayout)
 		{
 			psoDesc.InputLayout.push_back(element);
 		}

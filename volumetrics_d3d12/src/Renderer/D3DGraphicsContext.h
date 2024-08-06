@@ -54,7 +54,7 @@ public:
 	void ClearBackBuffer(const XMFLOAT4& clearColor) const;
 	void SetRenderTargetToBackBuffer(bool useDepth) const;
 	// For copying the output on a UAV into the back buffer
-	void CopyToBackBuffer(ID3D12Resource* resource) const;
+	void CopyToBackBuffer(ID3D12Resource* resource, D3D12_RESOURCE_STATES resourceState) const;
 
 	void DeferRelease(const ComPtr<IUnknown>& resource) const;
 

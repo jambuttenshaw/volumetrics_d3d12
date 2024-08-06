@@ -235,7 +235,7 @@ void D3DGraphicsContext::SetRenderTargetToBackBuffer(bool useDepth) const
 	m_CommandList->OMSetRenderTargets(1, &rtvHandle, FALSE, useDepth ? &dsvHandle : nullptr);
 }
 
-void D3DGraphicsContext::CopyToBackBuffer(ID3D12Resource* resource) const
+void D3DGraphicsContext::CopyToBackBuffer(ID3D12Resource* resource, D3D12_RESOURCE_STATES resourceState) const
 {
 	PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(71), "Copy to Back Buffer");
 
@@ -243,14 +243,14 @@ void D3DGraphicsContext::CopyToBackBuffer(ID3D12Resource* resource) const
 
 	D3D12_RESOURCE_BARRIER preCopyBarriers[2];
 	preCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
-	preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(resource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	preCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(resource, resourceState, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	m_CommandList->ResourceBarrier(ARRAYSIZE(preCopyBarriers), preCopyBarriers);
 
 	m_CommandList->CopyResource(renderTarget, resource);
 
 	D3D12_RESOURCE_BARRIER postCopyBarriers[2];
 	postCopyBarriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(renderTarget, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_RENDER_TARGET);
-	postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(resource, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	postCopyBarriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(resource, D3D12_RESOURCE_STATE_COPY_SOURCE, resourceState);
 
 	m_CommandList->ResourceBarrier(ARRAYSIZE(postCopyBarriers), postCopyBarriers);
 
@@ -303,6 +303,9 @@ void D3DGraphicsContext::Resize(UINT width, UINT height)
 	m_FrameIndex = 0;
 	CreateRTVs();
 	CreateDepthStencilBuffer();
+
+	m_Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_ClientWidth), static_cast<float>(m_ClientHeight));
+	m_ScissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_ClientWidth), static_cast<LONG>(m_ClientHeight));
 
 	// Send required work to re-init buffers
 	THROW_IF_FAIL(m_CommandList->Close());

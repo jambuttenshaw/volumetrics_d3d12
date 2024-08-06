@@ -58,12 +58,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	worldPos = worldPos / worldPos.w;
 
 	// get view vector
-	float3 v = normalize(g_PassCB.WorldEyePos - worldPos.xyz);
+	const float3 v = normalize(g_PassCB.WorldEyePos - worldPos.xyz);
 
 	// Shading time!
-	float3 albedo = g_Albedo[DTid.xy];
-	float3 normal = g_Normal[DTid.xy] * 2.0f - 1.0f;
-	float2 roughnessMetallic = g_RoughnessMetallic[DTid.xy];
+	const float3 albedo = g_Albedo[DTid.xy];
+	const float3 normal = normalize(g_Normal[DTid.xy] * 2.0f - 1.0f);
+	const float2 roughnessMetallic = g_RoughnessMetallic[DTid.xy];
 
 	float3 f0 = float3(0.04f, 0.04f, 0.04f);
 	f0 = lerp(f0, albedo, roughnessMetallic.y);
@@ -74,13 +74,12 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	{
 		// Get lighting parameters
 		const LightGPUData light = g_SceneLights[i];
-		float3 l = -light.Direction;
-		float3 el = light.Color * light.Intensity;
+		const float3 l = light.Position.w == 0.0f ? -normalize(light.Position.xyz) : normalize(light.Position.xyz - worldPos.xyz);
+		const float3 el = light.Color * light.Intensity;
 
 		// evaluate shading equation
-		float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y) * el * saturate(dot(normal, l));
-
-		lo += brdf;
+		const float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y);
+		lo += brdf * el * saturate(dot(normal, l));
 	}
 
 	// Calculate ambient lighting
@@ -100,8 +99,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	lo += ambient;
 
+	// Tone mapping
+	float3 color = lo / (1.0f + lo);
 	// Gamma correction
-	float3 color = pow(lo, 0.4545f);
+	color = pow(color, 0.4545f);
 
 	g_LitOutput[DTid.xy] = float4(color, 1.0f);
 

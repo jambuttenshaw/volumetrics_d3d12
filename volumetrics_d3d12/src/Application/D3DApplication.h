@@ -23,6 +23,14 @@ using namespace DirectX;
 
 class D3DApplication : public BaseApplication
 {
+	enum GBufferDebugView
+	{
+		GB_DBG_None = 0,
+		GB_DBG_Albedo,
+		GB_DBG_Normal,
+		GB_DBG_RoughnessMetalness,
+		GB_DBG_Depth
+	};
 public:
 	D3DApplication(UINT width, UINT height, const std::wstring& name);
 	virtual ~D3DApplication() override = default;
@@ -99,4 +107,6 @@ private:
 	// Should the application toggle fullscreen on the next update
 	bool m_ToggleFullscreen = false;
 	D3DGraphicsContextFlags m_GraphicsContextFlags;
+
+	GBufferDebugView m_GBufferDebugView = GB_DBG_None;
 };

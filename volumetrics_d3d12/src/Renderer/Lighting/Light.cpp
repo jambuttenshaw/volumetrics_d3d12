@@ -76,7 +76,7 @@ LightManager::LightManager()
 	// Populate default light properties
 	for (auto& light : m_LightStaging)
 	{
-		light.Direction = { 0.0f, -0.707f, 0.707f };
+		light.Position = { 0.0f, 1.5f, 0.0f, 1.0f };
 		light.Color = { 1.0f, 1.0f, 1.0f };
 		light.Intensity = 3.0f;
 	}
@@ -499,22 +499,29 @@ void LightManager::DrawGui()
 
 		ImGui::Text("Light %d", i);
 
-		// Direction should be edited in spherical coordinates
-		bool newDir = false;
-		float theta = acosf(light.Direction.y);
-		float phi = Math::Sign(light.Direction.z) * acosf(light.Direction.x / sqrtf(light.Direction.x * light.Direction.x + light.Direction.z * light.Direction.z));
-		newDir |= ImGui::SliderAngle("Theta", &theta, 1.0f, 179.0f);
-		newDir |= ImGui::SliderAngle("Phi", &phi, -179.0f, 180.0f);
-		if (newDir)
+		if (light.Position.w == 0.0f)
 		{
-			const float sinTheta = sinf(theta);
-			const float cosTheta = cosf(theta);
-			const float sinPhi = sinf(phi);
-			const float cosPhi = cosf(phi);
+			// Direction should be edited in spherical coordinates
+			bool newDir = false;
+			float theta = acosf(light.Position.y);
+			float phi = Math::Sign(light.Position.z) * acosf(light.Position.x / sqrtf(light.Position.x * light.Position.x + light.Position.z *	light.Position.z));
+			newDir |= ImGui::SliderAngle("Theta", &theta, 1.0f, 179.0f);
+			newDir |= ImGui::SliderAngle("Phi", &phi, -179.0f, 180.0f);
+			if (newDir)
+			{
+				const float sinTheta = sinf(theta);
+				const float cosTheta = cosf(theta);
+				const float sinPhi = sinf(phi);
+				const float cosPhi = cosf(phi);
 
-			light.Direction.x = sinTheta * cosPhi;
-			light.Direction.y = cosTheta;
-			light.Direction.z = sinTheta * sinPhi;
+				light.Position.x = sinTheta * cosPhi;
+				light.Position.y = cosTheta;
+				light.Position.z = sinTheta * sinPhi;
+			}
+		}
+		else
+		{
+			ImGui::DragFloat3("Position", &light.Position.x, 0.01f);
 		}
 
 		ImGui::ColorEdit3("Color", &light.Color.x);

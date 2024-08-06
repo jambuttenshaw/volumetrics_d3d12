@@ -47,6 +47,8 @@ public:
 	void Render() const;
 
 	ID3D12Resource* GetOutputResource() const { return m_OutputResource.GetResource(); }
+	ID3D12Resource* GetGBufferResource(UINT index) const { return m_RenderTargets.at(index).GetResource(); }
+	ID3D12Resource* GetDepthBufferResource() const { return m_DepthBuffer.GetResource(); }
 
 private:
 	void CreateResolutionDependentResources();
