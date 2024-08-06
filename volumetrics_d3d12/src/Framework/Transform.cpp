@@ -8,6 +8,7 @@ Transform::Transform(bool scaleMatrix)
 	: m_ScaleMatrix(scaleMatrix)
 {
 	m_Translation = XMVectorZero();
+	m_Scale = { 1.0f, 1.0f, 1.0f, 1.0f };
 	m_WorldMat = XMMatrixIdentity();
 }
 
@@ -56,11 +57,20 @@ void Transform::SetRoll(float roll)
 
 void Transform::SetScale(float scale)
 {
+	m_Scale = { scale, scale, scale, 1.0f };
+	BuildWorldMatrix();
+}
+
+void Transform::SetScale(const XMVECTOR& scale)
+{
 	m_Scale = scale;
-	if (m_ScaleMatrix)
-	{
-		BuildWorldMatrix();
-	}
+	BuildWorldMatrix();
+}
+
+void Transform::SetScale(const XMFLOAT3& scale)
+{
+	m_Scale = XMLoadFloat3(&scale);
+	BuildWorldMatrix();
 }
 
 bool Transform::DrawGui()
@@ -95,7 +105,14 @@ bool Transform::DrawGui()
 		}
 
 		// Scale
-		changed |= ImGui::DragFloat("Scale", &m_Scale, 0.01f);
+		XMFLOAT3 scale;
+		XMStoreFloat3(&scale, m_Scale);
+		if (ImGui::DragFloat3("Scale", &scale.x, 0.01f))
+		{
+			changed = true;
+			m_Scale = XMLoadFloat3(&scale);
+			BuildWorldMatrix();
+		}
 
 		// Reset button
 		if (ImGui::Button("Reset"))
@@ -104,7 +121,7 @@ bool Transform::DrawGui()
 			m_Pitch = 0.0f;
 			m_Yaw = 0.0f;
 			m_Roll = 0.0f;
-			m_Scale = 1.0f;
+			m_Scale = { 1.0f, 1.0f, 1.0f, 1.0f };
 			BuildWorldMatrix();
 		}
 	}
@@ -115,7 +132,7 @@ bool Transform::DrawGui()
 void Transform::BuildWorldMatrix()
 {
 	if (m_ScaleMatrix)
-		m_WorldMat = XMMatrixScaling(m_Scale, m_Scale, m_Scale)
+		m_WorldMat = XMMatrixScalingFromVector(m_Scale)
 				   * XMMatrixRotationRollPitchYaw(m_Pitch, m_Yaw, m_Roll)
 				   * XMMatrixTranslationFromVector(m_Translation);
 	else

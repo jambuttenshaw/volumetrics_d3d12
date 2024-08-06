@@ -18,11 +18,9 @@ public:
 
 protected:
 	size_t m_CubeGeometryHandle = -1;
-	size_t m_PlaneGeometryHandle = -1;
 	size_t m_SphereGeometryHandle = -1;
 
 	GeometryInstance* m_CubeInstance = nullptr;
-	GeometryInstance* m_PlaneInstance = nullptr;
 	GeometryInstance* m_SphereInstance = nullptr;
 
 };

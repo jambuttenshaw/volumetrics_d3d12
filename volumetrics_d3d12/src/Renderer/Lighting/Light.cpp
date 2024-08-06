@@ -74,11 +74,18 @@ XMFLOAT3 g_CubemapFaceBitangents[6] = {
 LightManager::LightManager()
 {
 	// Populate default light properties
-	for (auto& light : m_LightStaging)
+	m_LightingCBStaging.DirectionalLight.Direction = { 0.0f, -0.9f, 0.1f };
+	m_LightingCBStaging.DirectionalLight.Intensity = 2.0f;
+	m_LightingCBStaging.DirectionalLight.Color = { 1.0f, 1.0f, 1.0f };
+
+	m_LightingCBStaging.PointLightCount = s_MaxLights;
+
+	for (auto& light : m_PointLightsStaging)
 	{
-		light.Position = { 0.0f, 1.5f, 0.0f, 1.0f };
+		light.Position = { 0.0f, 1.5f, 0.0f };
 		light.Color = { 1.0f, 1.0f, 1.0f };
-		light.Intensity = 3.0f;
+		light.Intensity = 0.0f;
+		light.Range = 5.0f;
 	}
 
 	// Create API resources
@@ -103,9 +110,12 @@ LightManager::LightManager()
 	CreateResources();
 
 	// Create light buffers
-	m_LightBuffers.resize(D3DGraphicsContext::GetBackBufferCount());
-	for (auto& buffer : m_LightBuffers)
-		buffer.Allocate(g_D3DGraphicsContext->GetDevice(), s_MaxLights, 0, L"Light Buffer");
+	m_LightingResources.resize(D3DGraphicsContext::GetBackBufferCount());
+	for (auto& resources : m_LightingResources)
+	{
+		resources.LightingCB.Allocate(g_D3DGraphicsContext->GetDevice(), 1, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Lighting Constant Buffer");
+		resources.PointLights.Allocate(g_D3DGraphicsContext->GetDevice(), s_MaxLights, 0, L"Point Light Buffer");
+	}
 
 }
 
@@ -119,14 +129,21 @@ LightManager::~LightManager()
 }
 
 
-void LightManager::CopyStagingBuffer() const
+void LightManager::CopyStagingBuffers() const
 {
-	m_LightBuffers.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).CopyElements(0, static_cast<UINT>(m_LightStaging.size()), m_LightStaging.data());
+	const auto& resources = m_LightingResources.at(g_D3DGraphicsContext->GetCurrentBackBuffer());
+	resources.LightingCB.CopyElement(0, m_LightingCBStaging);
+	resources.PointLights.CopyElements(0, static_cast<UINT>(m_PointLightsStaging.size()), m_PointLightsStaging.data());
 }
 
-D3D12_GPU_VIRTUAL_ADDRESS LightManager::GetLightBuffer() const
+D3D12_GPU_VIRTUAL_ADDRESS LightManager::GetLightingConstantBuffer() const
 {
-	return m_LightBuffers.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).GetAddressOfElement(0);
+	return m_LightingResources.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).LightingCB.GetAddressOfElement(0);
+}
+
+D3D12_GPU_VIRTUAL_ADDRESS LightManager::GetPointLightBuffer() const
+{
+	return m_LightingResources.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).PointLights.GetAddressOfElement(0);
 }
 
 
@@ -493,37 +510,46 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 
 void LightManager::DrawGui()
 {
-	for (size_t i = 0; i < m_LightStaging.size(); i++)
+
+	// Directional Light
 	{
-		auto& light = m_LightStaging.at(i);
+		ImGui::Text("Directional Light");
+
+		auto& directionalLight = m_LightingCBStaging.DirectionalLight;
+
+		// Direction should be edited in spherical coordinates
+		bool newDir = false;
+		float theta = acosf(directionalLight.Direction.y);
+		float phi = Math::Sign(directionalLight.Direction.z) * acosf(directionalLight.Direction.x 
+			/ sqrtf(directionalLight.Direction.x * directionalLight.Direction.x + directionalLight.Direction.z * directionalLight.Direction.z));
+		newDir |= ImGui::SliderAngle("Theta", &theta, 1.0f, 179.0f);
+		newDir |= ImGui::SliderAngle("Phi", &phi, -179.0f, 180.0f);
+		if (newDir)
+		{
+			const float sinTheta = sinf(theta);
+			const float cosTheta = cosf(theta);
+			const float sinPhi = sinf(phi);
+			const float cosPhi = cosf(phi);
+
+			directionalLight.Direction.x = sinTheta * cosPhi;
+			directionalLight.Direction.y = cosTheta;
+			directionalLight.Direction.z = sinTheta * sinPhi;
+		}
+
+		ImGui::ColorEdit3("Sun Color", &directionalLight.Color.x);
+		if (ImGui::DragFloat("Sun Intensity", &directionalLight.Intensity, 0.01f))
+		{
+			directionalLight.Intensity = max(0, directionalLight.Intensity);
+		}
+	}
+
+	for (size_t i = 0; i < m_PointLightsStaging.size(); i++)
+	{
+		auto& light = m_PointLightsStaging.at(i);
 
 		ImGui::Text("Light %d", i);
 
-		if (light.Position.w == 0.0f)
-		{
-			// Direction should be edited in spherical coordinates
-			bool newDir = false;
-			float theta = acosf(light.Position.y);
-			float phi = Math::Sign(light.Position.z) * acosf(light.Position.x / sqrtf(light.Position.x * light.Position.x + light.Position.z *	light.Position.z));
-			newDir |= ImGui::SliderAngle("Theta", &theta, 1.0f, 179.0f);
-			newDir |= ImGui::SliderAngle("Phi", &phi, -179.0f, 180.0f);
-			if (newDir)
-			{
-				const float sinTheta = sinf(theta);
-				const float cosTheta = cosf(theta);
-				const float sinPhi = sinf(phi);
-				const float cosPhi = cosf(phi);
-
-				light.Position.x = sinTheta * cosPhi;
-				light.Position.y = cosTheta;
-				light.Position.z = sinTheta * sinPhi;
-			}
-		}
-		else
-		{
-			ImGui::DragFloat3("Position", &light.Position.x, 0.01f);
-		}
-
+		ImGui::DragFloat3("Position", &light.Position.x, 0.01f);
 		ImGui::ColorEdit3("Color", &light.Color.x);
 		if (ImGui::DragFloat("Intensity", &light.Intensity, 0.01f))
 		{

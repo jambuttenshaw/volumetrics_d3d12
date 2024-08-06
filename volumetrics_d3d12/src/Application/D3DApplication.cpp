@@ -236,7 +236,7 @@ void D3DApplication::OnRender()
 	// Update constant buffer
 	UpdatePassCB();
 	m_MaterialManager->UploadMaterialData();
-	m_LightManager->CopyStagingBuffer();
+	m_LightManager->CopyStagingBuffers();
 
 	// Perform all queued uploads
 	m_TextureLoader->PerformUploads();
@@ -353,9 +353,6 @@ void D3DApplication::UpdatePassCB()
 
 	m_PassCB.TotalTime = m_Timer.GetTimeSinceReset();
 	m_PassCB.DeltaTime = m_Timer.GetDeltaTime();
-
-	// Lighting constants
-	m_PassCB.LightCount = m_LightManager->GetLightCount();
 }
 
 

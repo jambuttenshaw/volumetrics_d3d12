@@ -47,8 +47,9 @@ public:
 	DEFAULT_MOVE(LightManager);
 
 	// Call each frame to move the latest lighting data to the GPU
-	void CopyStagingBuffer() const;
-	D3D12_GPU_VIRTUAL_ADDRESS GetLightBuffer() const;
+	void CopyStagingBuffers() const;
+	D3D12_GPU_VIRTUAL_ADDRESS GetLightingConstantBuffer() const;
+	D3D12_GPU_VIRTUAL_ADDRESS GetPointLightBuffer() const;
 
 	inline UINT GetLightCount() const { return s_MaxLights; }
 
@@ -71,13 +72,19 @@ private:
 	void CreateResources();
 
 private:
-	// Light container
 	inline static constexpr size_t s_MaxLights = 1;
-	std::array<LightGPUData, s_MaxLights> m_LightStaging;
+
+	LightingConstantBuffer m_LightingCBStaging;
+	std::array<PointLightGPUData, s_MaxLights> m_PointLightsStaging;
 
 	// Light GPU Resources
 	// This is a buffered resource so that light data can be modified between frames
-	std::vector<UploadBuffer<LightGPUData>> m_LightBuffers;
+	struct LightingGPUResourcesPerFrame
+	{
+		UploadBuffer<LightingConstantBuffer> LightingCB;
+		UploadBuffer<PointLightGPUData> PointLights;
+	};
+	std::vector<LightingGPUResourcesPerFrame> m_LightingResources;
 
 	// Environmental lighting resources
 	std::unique_ptr<Texture> m_EnvironmentMap;

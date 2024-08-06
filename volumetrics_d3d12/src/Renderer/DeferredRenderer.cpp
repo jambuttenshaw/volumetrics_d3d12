@@ -41,7 +41,8 @@ namespace LightingPassRootSignature
 	{
 		PassConstantBuffer = 0,
 		GBuffer,				// GBuffer SRVs are sequential
-		LightBuffer,			// A buffer of lights in the scene
+		LightingConstantBuffer,	// Constant buffer with universal lighting parameters
+		PointLightBuffer,		// A buffer of all point lights in the scene
 		EnvironmentMaps,		// Environment maps are sequential
 		EnvironmentSamplers,	// Environment samplers are sequential
 		OutputResource,
@@ -159,7 +160,8 @@ DeferredRenderer::DeferredRenderer()
 		CD3DX12_ROOT_PARAMETER1 rootParameters[LightingPassRootSignature::Count];
 		rootParameters[LightingPassRootSignature::PassConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE);
 		rootParameters[LightingPassRootSignature::GBuffer].InitAsDescriptorTable(1, &ranges[0]);
-		rootParameters[LightingPassRootSignature::LightBuffer].InitAsShaderResourceView(4, 0);
+		rootParameters[LightingPassRootSignature::LightingConstantBuffer].InitAsConstantBufferView(1, 0);
+		rootParameters[LightingPassRootSignature::PointLightBuffer].InitAsShaderResourceView(4, 0);
 		rootParameters[LightingPassRootSignature::EnvironmentMaps].InitAsDescriptorTable(1, &ranges[1]);
 		rootParameters[LightingPassRootSignature::EnvironmentSamplers].InitAsDescriptorTable(1, &ranges[2]);
 		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[3]);
@@ -488,7 +490,8 @@ void DeferredRenderer::LightingPass() const
 	// Set root arguments
 	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::GBuffer, m_SRVs.GetGPUHandle());
-	commandList->SetComputeRootShaderResourceView(LightingPassRootSignature::LightBuffer, m_LightManager->GetLightBuffer());
+	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::LightingConstantBuffer, m_LightManager->GetLightingConstantBuffer());
+	commandList->SetComputeRootShaderResourceView(LightingPassRootSignature::PointLightBuffer, m_LightManager->GetPointLightBuffer());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, m_LightManager->GetSRVTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentSamplers, m_LightManager->GetSamplerTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());

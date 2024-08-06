@@ -38,10 +38,7 @@ struct PassConstantBuffer
 	float TotalTime;
 	float DeltaTime;
 
-	// The number of lights in the light buffer
-	UINT LightCount;
-
-	UINT Padding;
+	XMUINT2 Padding;
 };
 
 // Per-object data per frame
@@ -61,9 +58,24 @@ struct FullscreenQuadProperties
 
 
 // Lighting structures
-struct LightGPUData
+struct LightingConstantBuffer
 {
-	XMFLOAT4 Position; // Directional light if w == 0
+	// Global directional light (the sun)
+	struct
+	{
+		XMFLOAT3 Direction;
+		float Intensity;
+		XMFLOAT3 Color;
+		float Padding;
+	} DirectionalLight;
+
+	UINT PointLightCount;
+};
+
+struct PointLightGPUData
+{
+	XMFLOAT3 Position;
+	float Range;
 
 	XMFLOAT3 Color;
 	float Intensity;

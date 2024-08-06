@@ -17,7 +17,8 @@ Texture2D<float2> g_RoughnessMetallic : register(t2, space0);
 Texture2D<float> g_Depth : register(t3, space0);
 
 // Scene lighting
-StructuredBuffer<LightGPUData> g_SceneLights : register(t4, space0);
+ConstantBuffer<LightingConstantBuffer> g_LightCB : register(b1, space0);
+StructuredBuffer<PointLightGPUData> g_PointLights : register(t4, space0);
 
 // Environmental lighting resources
 TextureCube g_IrradianceMap : register(t0, space1);
@@ -70,11 +71,22 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	float3 lo = float3(0.0f, 0.0f, 0.0f);
 
-	for (uint i = 0; i < g_PassCB.LightCount; i++)
+	// Apply directional lighting
+	{
+		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
+		const float3 el = g_LightCB.DirectionalLight.Color * g_LightCB.DirectionalLight.Intensity;
+
+		// evaluate shading equation
+		const float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y);
+		lo += brdf * el * saturate(dot(normal, l));
+	}
+
+	// Apply lighting from all point lights
+	for (uint i = 0; i < g_LightCB.PointLightCount; i++)
 	{
 		// Get lighting parameters
-		const LightGPUData light = g_SceneLights[i];
-		const float3 l = light.Position.w == 0.0f ? -normalize(light.Position.xyz) : normalize(light.Position.xyz - worldPos.xyz);
+		const PointLightGPUData light = g_PointLights[i];
+		const float3 l = normalize(light.Position.xyz - worldPos.xyz);
 		const float3 el = light.Color * light.Intensity;
 
 		// evaluate shading equation

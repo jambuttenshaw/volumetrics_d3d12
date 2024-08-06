@@ -149,7 +149,8 @@ std::unique_ptr<TriangleGeometry> GeometryFactory::BuildSphere(float radius, UIN
 		indices[i++] = static_cast<IndexType>(vertices.size() - (lon + 1) - 1);
 	}
 
-	return BuildFromVerticesIndices(vertices.size(), vertices.data(), indices.size(), indices.data());
+	return BuildFromVerticesIndices(static_cast<UINT>(vertices.size()), vertices.data(),
+		static_cast<UINT>(indices.size()), indices.data());
 }
 
 
