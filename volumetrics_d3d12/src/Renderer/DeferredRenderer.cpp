@@ -55,6 +55,7 @@ namespace LightingPassRootSignature
 		PointLightBuffer,		// A buffer of all point lights in the scene
 		EnvironmentMaps,		// Environment maps are sequential
 		EnvironmentSamplers,	// Environment samplers are sequential
+		SunShadowMap,			// Shadow map for the sun
 		OutputResource,
 		Count
 	};
@@ -136,7 +137,11 @@ DeferredRenderer::DeferredRenderer()
 		psoDesc.PixelShader.ShaderPath = nullptr;
 		psoDesc.PixelShader.EntryPoint = nullptr;
 
-		psoDesc.DSVFormat = DXGI_FORMAT_D16_UNORM;
+		psoDesc.DSVFormat = ShadowMap::GetDSVFormat();
+
+		psoDesc.RasterizerDesc.DepthBias = 10000;
+		psoDesc.RasterizerDesc.DepthBiasClamp = 0.01f;
+		psoDesc.RasterizerDesc.SlopeScaledDepthBias = 2.5f;
 
 		m_DepthOnlyPipeline.Create(&psoDesc);
 	}
@@ -188,7 +193,7 @@ DeferredRenderer::DeferredRenderer()
 	{
 		D3DComputePipelineDesc psoDesc = {};
 
-		CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[6];
 
 		// All descriptors in the g-buffer are contiguous
 		// There will be one for each render target plus the depth buffer
@@ -198,10 +203,13 @@ DeferredRenderer::DeferredRenderer()
 		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 1);
 
 		// Environment samplers
-		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0, 1);
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 3, 0, 0);
+
+		// Shadow map
+		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2);
 
 		// Output UAV
-		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+		ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
 
 
 		// Set up root parameters
@@ -212,7 +220,8 @@ DeferredRenderer::DeferredRenderer()
 		rootParameters[LightingPassRootSignature::PointLightBuffer].InitAsShaderResourceView(4, 0);
 		rootParameters[LightingPassRootSignature::EnvironmentMaps].InitAsDescriptorTable(1, &ranges[1]);
 		rootParameters[LightingPassRootSignature::EnvironmentSamplers].InitAsDescriptorTable(1, &ranges[2]);
-		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[3]);
+		rootParameters[LightingPassRootSignature::SunShadowMap].InitAsDescriptorTable(1, &ranges[3]);
+		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[4]);
 
 		psoDesc.NumRootParameters = LightingPassRootSignature::Count;
 		psoDesc.RootParameters = rootParameters;
@@ -569,6 +578,7 @@ void DeferredRenderer::LightingPass() const
 	commandList->SetComputeRootShaderResourceView(LightingPassRootSignature::PointLightBuffer, m_LightManager->GetPointLightBuffer());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, m_LightManager->GetSRVTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentSamplers, m_LightManager->GetSamplerTable());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::SunShadowMap, m_LightManager->GetSunShadowMap().GetSRV());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());
 
 	// Dispatch lighting pass

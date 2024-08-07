@@ -40,6 +40,7 @@ class LightManager
 	{
 		EnvironmentMapSampler = 0,
 		BRDFIntegrationMapSampler,
+		ShadowMapSampler,
 		SamplerCount
 	};
 

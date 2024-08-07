@@ -23,9 +23,12 @@ public:
 
 	void ApplyViewport(ID3D12GraphicsCommandList* commandList) const;
 
+	static constexpr DXGI_FORMAT GetDSVFormat() { return s_DSVFormat; }
+	static constexpr DXGI_FORMAT GetSRVFormat() { return s_SRVFormat; }
+
 private:
-	static constexpr DXGI_FORMAT s_DSVFormat = DXGI_FORMAT_D16_UNORM;
-	static constexpr DXGI_FORMAT s_SRVFormat = DXGI_FORMAT_R16_UNORM;
+	static constexpr DXGI_FORMAT s_DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	static constexpr DXGI_FORMAT s_SRVFormat = DXGI_FORMAT_R32_FLOAT;
 
 	DescriptorAllocation m_DSV;
 	DescriptorAllocation m_SRV;

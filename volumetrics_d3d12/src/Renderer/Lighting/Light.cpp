@@ -81,7 +81,7 @@ void CartesianDirectionToSpherical(const XMFLOAT3& direction, float& phi, float&
 LightManager::LightManager()
 {
 	// Populate default light properties
-	m_LightingCBStaging.DirectionalLight.Direction = { 0.0f, -0.9f, 0.1f };
+	m_LightingCBStaging.DirectionalLight.Direction = { 0.0f, -0.7f, 0.7f };
 	m_LightingCBStaging.DirectionalLight.Intensity = 2.0f;
 	m_LightingCBStaging.DirectionalLight.Color = { 1.0f, 1.0f, 1.0f };
 
@@ -387,6 +387,17 @@ void LightManager::CreateResources()
 		samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 
 		device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetCPUHandle(BRDFIntegrationMapSampler));
+
+
+		// Shadow map sampler
+		samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+		samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+
+		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS;
+
+		device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetCPUHandle(ShadowMapSampler));
 	}
 }
 

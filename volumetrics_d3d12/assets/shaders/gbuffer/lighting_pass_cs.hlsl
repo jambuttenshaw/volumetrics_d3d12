@@ -25,9 +25,14 @@ TextureCube g_IrradianceMap : register(t0, space1);
 Texture2D g_BRDFIntegrationMap : register(t1, space1); 
 TextureCube g_PrefilteredEnvironmentMap : register(t2, space1);
 
-SamplerState g_EnvironmentSampler : register(s0, space1);
-SamplerState g_BRDFIntegrationSampler : register(s1, space1);
- 
+// Shadows
+Texture2D<float> g_SunShadowMap : register(t0, space2);
+
+// Samplers
+SamplerState g_EnvironmentSampler : register(s0, space0);
+SamplerState g_BRDFIntegrationSampler : register(s1, space0);
+SamplerComparisonState g_ShadowMapSampler : register(s2, space0);
+
 // Lighting output
 RWTexture2D<float4> g_LitOutput : register(u0);
 
@@ -78,7 +83,40 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 		// evaluate shading equation
 		const float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y);
-		lo += brdf * el * saturate(dot(normal, l));
+
+		// determine visibility
+		float visible;
+		{
+			float4 shadowPos = mul(worldPos, g_LightCB.DirectionalLight.ViewProjection);
+			shadowPos /= shadowPos.w;
+
+			float2 shadowMapUV = shadowPos.xy * 0.5f + 0.5f;
+			shadowMapUV.y = 1.0f - shadowMapUV.y;
+
+			const int2 offsets[9] =
+			{
+				{ -1, -1 },
+				{  0, -1 },
+				{  1, -1 },
+				{ -1,  0 },
+				{  0,  0 },
+				{  1,  0 },
+				{ -1,  1 },
+				{  0,  1 },
+				{  1,  1 }
+			};
+
+			float percentLit = 0.0f;
+			[unroll]
+			for (uint i = 0; i < 9; i++)
+			{
+				percentLit += g_SunShadowMap.SampleCmpLevelZero(g_ShadowMapSampler, shadowMapUV, shadowPos.z, offsets[i]);
+			}
+			visible = percentLit / 9.0f;
+		}
+
+
+		lo += visible * brdf * el * saturate(dot(normal, l));
 	}
 
 	// Apply lighting from all point lights
