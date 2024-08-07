@@ -51,6 +51,8 @@ public:
 	void StartDraw(const PassConstantBuffer& passCB) const;
 	void EndDraw() const;
 
+	void RestoreDefaultViewport() const;
+
 	void ClearBackBuffer(const XMFLOAT4& clearColor) const;
 	void SetRenderTargetToBackBuffer(bool useDepth) const;
 	// For copying the output on a UAV into the back buffer
@@ -73,7 +75,6 @@ public:
 	inline bool IsPIXEnabled() const { return m_PIXCaptureModule != nullptr; }
 
 	inline float GetAspectRatio() const { return static_cast<float>(m_ClientWidth) / static_cast<float>(m_ClientHeight); }
-	inline const XMMATRIX& GetProjectionMatrix() const { return m_ProjectionMatrix; }
 
 	inline static constexpr UINT GetBackBufferCount() { return s_FrameCount; }
 	inline DXGI_FORMAT GetBackBufferFormat() const { return m_BackBufferFormat; }
@@ -130,8 +131,6 @@ private:
 	bool CheckRaytracingSupport() const;
 	void CreateRaytracingInterfaces();
 
-	void CreateProjectionMatrix();
-
 	void MoveToNextFrame();
 	void ProcessDeferrals(UINT frameIndex) const;
 	// NOTE: this is only safe to do so when ALL WORK HAS BEEN COMPLETED ON THE GPU!!!
@@ -149,12 +148,6 @@ private:
 	bool m_WindowedMode = true;
 	bool m_TearingSupport = false;
 	bool m_VSyncEnabled = false;
-
-	// Projection properties
-	float m_FOV = 0.25f * XM_PI;
-	float m_NearPlane = 0.1f;
-	float m_FarPlane = 100.0f;
-	XMMATRIX m_ProjectionMatrix;
 
 	CD3DX12_VIEWPORT m_Viewport{ };
 	CD3DX12_RECT m_ScissorRect{ };

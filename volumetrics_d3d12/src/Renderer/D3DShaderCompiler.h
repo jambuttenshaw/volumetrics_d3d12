@@ -24,6 +24,10 @@ public:
 	{
 		return { blob->GetBufferPointer(), blob->GetBufferSize() };
 	}
+	static D3D12_SHADER_BYTECODE GetNullBytecode()
+	{
+		return { nullptr, 0 };
+	}
 
 	// e.g.: SetShaderModel(L"6", L"5"); for shader model 6.5
 	static void SetShaderModel(const wchar_t* major, const wchar_t* minor)

@@ -41,19 +41,22 @@ void D3DGraphicsPipeline::Create(D3DGraphicsPipelineDesc* desc)
 		L"vs",
 		desc->Defines,
 		&vs));
-	THROW_IF_FAIL(D3DShaderCompiler::CompileFromFile(
-		desc->PixelShader.ShaderPath,
-		desc->PixelShader.EntryPoint,
-		L"ps",
-		desc->Defines,
-		&ps));
+	if (desc->PixelShader.ShaderPath)
+	{
+		THROW_IF_FAIL(D3DShaderCompiler::CompileFromFile(
+			desc->PixelShader.ShaderPath,
+			desc->PixelShader.EntryPoint,
+			L"ps",
+			desc->Defines,
+			&ps));
+	}
 
 	// Create the pipeline description
 	{
 		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
 		psoDesc.pRootSignature = m_RootSignature.Get();
 		psoDesc.VS = D3DShaderCompiler::GetBytecodeFromBlob(vs.Get());
-		psoDesc.PS = D3DShaderCompiler::GetBytecodeFromBlob(ps.Get());
+		psoDesc.PS = desc->PixelShader.ShaderPath ? D3DShaderCompiler::GetBytecodeFromBlob(ps.Get()) : D3DShaderCompiler::GetNullBytecode();
 
 		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 		psoDesc.SampleMask = UINT_MAX;
@@ -72,7 +75,7 @@ void D3DGraphicsPipeline::Create(D3DGraphicsPipelineDesc* desc)
 			psoDesc.RTVFormats[i] = desc->RenderTargetFormats.at(i);
 		}
 
-		psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+		psoDesc.DSVFormat = desc->DSVFormat;
 		psoDesc.SampleDesc.Count = 1;
 		psoDesc.SampleDesc.Quality = 0;
 

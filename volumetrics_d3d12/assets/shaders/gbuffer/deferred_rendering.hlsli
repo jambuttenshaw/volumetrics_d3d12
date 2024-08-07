@@ -35,4 +35,10 @@ struct GeometryPass_PSOutput
 	float2 RoughnessMetalness : SV_TARGET2;
 };
 
+
+struct DepthPass_VSOutput // No PS used for depth pass
+{
+	float4 Position : SV_POSITION;
+};
+
 #endif

@@ -1,5 +1,5 @@
-#ifndef BASICVS_HLSL
-#define BASICVS_HLSL
+#ifndef GEOMETRYPASSVS_HLSL
+#define GEOMETRYPASSVS_HLSL
 
 #define HLSL
 #include "../HlslCompat/StructureHlslCompat.h"

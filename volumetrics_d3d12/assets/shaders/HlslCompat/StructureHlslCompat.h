@@ -67,6 +67,8 @@ struct LightingConstantBuffer
 		float Intensity;
 		XMFLOAT3 Color;
 		float Padding;
+
+		XMMATRIX ViewProjection;
 	} DirectionalLight;
 
 	UINT PointLightCount;

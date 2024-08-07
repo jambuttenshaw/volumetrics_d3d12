@@ -9,9 +9,9 @@ XMFLOAT3 Camera::GetPosition() const
 	return pos;
 }
 
-void Camera::RebuildIfDirty()
+void Camera::RebuildViewIfDirty()
 {
-	if (m_Dirty)
+	if (m_ViewDirty)
 	{
 		// Recalculate properties
 		const float sinY = sinf(m_Yaw);
@@ -29,7 +29,22 @@ void Camera::RebuildIfDirty()
 
 		m_ViewMatrix = XMMatrixLookAtLH(m_Position, target, m_Up);
 
-		m_Dirty = false;
+		m_ViewDirty = false;
+	}
+}
+
+void Camera::RebuildProjIfDirty()
+{
+	if (m_ProjectionDirty)
+	{
+		if (m_Orthographic)
+		{
+			m_ProjectionMatrix = XMMatrixOrthographicLH(m_OrthographicWidth, m_OrthographicHeight, m_NearPlane, m_FarPlane);
+		}
+		else
+		{
+			m_ProjectionMatrix = XMMatrixPerspectiveFovLH(m_FOV, m_AspectRatio, m_NearPlane, m_FarPlane);
+		}
 	}
 }
 

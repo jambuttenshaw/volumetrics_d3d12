@@ -24,7 +24,7 @@ VolumetricScene::VolumetricScene(D3DApplication* application, UINT maxGeometryIn
 	}
 
 	{
-		Transform sphereTransform{ { 0.0f, 1.0f, 2.0f } };
+		Transform sphereTransform{ { 0.0f, 1.0f, 0.0f } };
 		m_SphereInstance->SetTransform(sphereTransform);
 	}
 }

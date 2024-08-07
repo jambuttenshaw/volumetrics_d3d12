@@ -23,6 +23,16 @@ namespace GeometryPassRootSignature
 	};
 }
 
+namespace DepthPassRootSignature
+{
+	enum Parameters
+	{
+		ObjectConstantBuffer = 0,
+		LightConstantBuffer,
+		Count
+	};
+}
+
 namespace SkyboxPassRootSignature
 {
 	enum Parameters
@@ -90,8 +100,45 @@ DeferredRenderer::DeferredRenderer()
 
 		// Add all render target formats to the description
 		psoDesc.RenderTargetFormats.insert(psoDesc.RenderTargetFormats.end(), m_RTFormats.begin(), m_RTFormats.end());
+		psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
 		m_GeometryPassPipeline.Create(&psoDesc);
+	}
+
+	// Create depth only pipeline state
+	{
+		D3DGraphicsPipelineDesc psoDesc = {};
+
+		CD3DX12_ROOT_PARAMETER1 rootParameters[DepthPassRootSignature::Count];
+		rootParameters[DepthPassRootSignature::ObjectConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
+		rootParameters[DepthPassRootSignature::LightConstantBuffer].InitAsConstantBufferView(1, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE, D3D12_SHADER_VISIBILITY_VERTEX);
+
+		psoDesc.NumRootParameters = DepthPassRootSignature::Count;
+		psoDesc.RootParameters = rootParameters;
+		psoDesc.RootSignatureFlags = 
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_MESH_SHADER_ROOT_ACCESS |
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_AMPLIFICATION_SHADER_ROOT_ACCESS;
+
+		for (const auto& element : VertexType::InputLayout)
+		{
+			psoDesc.InputLayout.push_back(element);
+		}
+
+		// Shaders
+		psoDesc.VertexShader.ShaderPath = L"assets/shaders/gbuffer/depth_pass_vs.hlsl";
+		psoDesc.VertexShader.EntryPoint = L"main";
+
+		psoDesc.PixelShader.ShaderPath = nullptr;
+		psoDesc.PixelShader.EntryPoint = nullptr;
+
+		psoDesc.DSVFormat = DXGI_FORMAT_D16_UNORM;
+
+		m_DepthOnlyPipeline.Create(&psoDesc);
 	}
 
 	// Create skybox pipeline state
@@ -129,6 +176,7 @@ DeferredRenderer::DeferredRenderer()
 		// Only a single render target will be used for the skybox pass
 		// It will be the same format as the output resource of the deferred renderer
 		psoDesc.RenderTargetFormats.push_back(m_OutputFormat);
+		psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 
 		// Only draw skybox where depth is 1.0f
 		psoDesc.DepthStencilDesc.DepthFunc = D3D12_COMPARISON_FUNC_EQUAL;
@@ -339,6 +387,12 @@ void DeferredRenderer::Render() const
 		barriers.clear();
 	};
 
+	// Render shadow maps first
+	RenderShadowMaps();
+
+	g_D3DGraphicsContext->RestoreDefaultViewport();
+
+	// Then render geometry pass
 	ClearGBuffer();
 
 	GeometryPass();
@@ -394,6 +448,40 @@ void DeferredRenderer::Render() const
 }
 
 
+void DeferredRenderer::RenderShadowMaps() const
+{
+	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(2), "Shadow Map");
+
+
+	// Render directional light shadow map
+	const auto& shadowMap = m_LightManager->GetSunShadowMap();
+	const auto dsv = shadowMap.GetDSV();
+
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(shadowMap.GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,D3D12_RESOURCE_STATE_DEPTH_WRITE);
+	commandList->ResourceBarrier(1, &barrier);
+
+	shadowMap.ApplyViewport(commandList);
+
+	// Clear shadow map
+	commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	// Set depth stencil view and no render targets
+	commandList->OMSetRenderTargets(0, nullptr, false, &dsv);
+
+	m_DepthOnlyPipeline.Bind(commandList);
+	commandList->SetGraphicsRootConstantBufferView(DepthPassRootSignature::LightConstantBuffer, m_LightManager->GetLightingConstantBuffer());
+
+	DrawAllGeometry(commandList, DepthPassRootSignature::ObjectConstantBuffer);
+
+	barrier = CD3DX12_RESOURCE_BARRIER::Transition(shadowMap.GetResource(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	commandList->ResourceBarrier(1, &barrier);
+
+	PIXEndEvent(commandList);
+}
+
+
 void DeferredRenderer::ClearGBuffer() const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
@@ -424,24 +512,11 @@ void DeferredRenderer::GeometryPass() const
 
 	// Perform drawing into g-buffer
 	m_GeometryPassPipeline.Bind(commandList);
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	commandList->SetGraphicsRootConstantBufferView(GeometryPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->SetGraphicsRootShaderResourceView(GeometryPassRootSignature::MaterialBuffer, m_MaterialManager->GetMaterialBufferAddress());
 
-	for (const auto& geometryInstance : m_Scene->GetAllGeometryInstances())
-	{
-		// Set material root parameters
-		commandList->SetGraphicsRootConstantBufferView(GeometryPassRootSignature::ObjectConstantBuffer, m_Scene->GetObjectCBAddress(geometryInstance.GetInstanceID()));
-
-		// Bind geometry
-		const TriangleGeometry* geometry = geometryInstance.GetGeometry();
-
-		commandList->IASetIndexBuffer(&geometry->IndexBufferView);
-		commandList->IASetVertexBuffers(0, 1, &geometry->VertexBufferView);
-
-		commandList->DrawIndexedInstanced(geometry->IndexBuffer.GetElementCount(), 1, 0, 0, 0);
-	}
+	DrawAllGeometry(commandList, GeometryPassRootSignature::ObjectConstantBuffer);
 
 	PIXEndEvent(commandList);
 }
@@ -506,4 +581,24 @@ void DeferredRenderer::LightingPass() const
 	commandList->Dispatch(threadGroupX, threadGroupY, 1);
 
 	PIXEndEvent(commandList);
+}
+
+
+void DeferredRenderer::DrawAllGeometry(ID3D12GraphicsCommandList* commandList, UINT objectCBParamIndex) const
+{
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	for (const auto& geometryInstance : m_Scene->GetAllGeometryInstances())
+	{
+		// Set material root parameters
+		commandList->SetGraphicsRootConstantBufferView(objectCBParamIndex, m_Scene->GetObjectCBAddress(geometryInstance.GetInstanceID()));
+
+		// Bind geometry
+		const TriangleGeometry* geometry = geometryInstance.GetGeometry();
+
+		commandList->IASetIndexBuffer(&geometry->IndexBufferView);
+		commandList->IASetVertexBuffers(0, 1, &geometry->VertexBufferView);
+
+		commandList->DrawIndexedInstanced(geometry->IndexBuffer.GetElementCount(), 1, 0, 0, 0);
+	}
 }

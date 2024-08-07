@@ -443,6 +443,7 @@
     <ClCompile Include="src\Renderer\Geometry\GeometryInstance.cpp" />
     <ClCompile Include="src\Renderer\Lighting\Light.cpp" />
     <ClCompile Include="src\Renderer\Lighting\Material.cpp" />
+    <ClCompile Include="src\Renderer\Lighting\ShadowMap.cpp" />
     <ClCompile Include="src\Renderer\Memory\MemoryAllocator.cpp" />
     <ClCompile Include="src\Renderer\Profiling\NvGPUProfiler.cpp" />
     <ClCompile Include="src\Renderer\Profiling\GPUProfiler.cpp" />
@@ -546,6 +547,7 @@
     <ClInclude Include="src\Renderer\Hlsl\StructureHlslCompat.h" />
     <ClInclude Include="src\Renderer\Lighting\Light.h" />
     <ClInclude Include="src\Renderer\Lighting\Material.h" />
+    <ClInclude Include="src\Renderer\Lighting\ShadowMap.h" />
     <ClInclude Include="src\Renderer\Profiling\NvGPUProfiler.h" />
     <ClInclude Include="src\Renderer\Profiling\GPUProfiler.h" />
     <ClInclude Include="src\Renderer\Hlsl\ComputeHlslCompat.h" />
@@ -586,6 +588,18 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="assets\shaders\fullscreen_vs.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Shipping|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile_Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Shipping|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile_Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="assets\shaders\gbuffer\depth_pass_vs.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Shipping|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

@@ -15,7 +15,6 @@
 
 #include <fstream>
 
-#include "Framework/Picker.h"
 #include "Renderer/D3DDebugTools.h"
 #include "Framework/GuiHelpers.h"
 
@@ -25,6 +24,7 @@
 D3DApplication::D3DApplication(UINT width, UINT height, const std::wstring& name)
 	: BaseApplication(width, height, name)
 {
+	m_Camera.SetAspectRatio(static_cast<float>(m_Width) / static_cast<float>(m_Height));
 }
 
 
@@ -235,6 +235,8 @@ void D3DApplication::OnRender()
 
 	// Update constant buffer
 	UpdatePassCB();
+	m_LightManager->UpdateLightingCB(m_Camera.GetPosition());
+
 	m_MaterialManager->UploadMaterialData();
 	m_LightManager->CopyStagingBuffers();
 
@@ -334,7 +336,7 @@ void D3DApplication::UpdatePassCB()
 {
 	// Calculate view matrix
 	const XMMATRIX view = m_Camera.GetViewMatrix();
-	const XMMATRIX proj = m_GraphicsContext->GetProjectionMatrix();
+	const XMMATRIX proj = m_Camera.GetProjectionMatrix();
 
 	const XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 	const XMMATRIX invView = XMMatrixInverse(nullptr, view);
@@ -538,6 +540,8 @@ void D3DApplication::OnResized()
 {
 	m_GraphicsContext->Resize(m_Width, m_Height);
 	m_DeferredRenderer->OnBackBufferResize();
+
+	m_Camera.SetAspectRatio(static_cast<float>(m_Width) / static_cast<float>(m_Height));
 }
 
 

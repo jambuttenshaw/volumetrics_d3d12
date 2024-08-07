@@ -1,6 +1,5 @@
 #pragma once
 #include "Core.h"
-#include "Renderer/Memory/MemoryAllocator.h"
 
 
 using Microsoft::WRL::ComPtr;
@@ -11,7 +10,7 @@ class Texture
 public:
 	Texture() = default;
 	Texture(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* const clearValue = nullptr);
-	~Texture() = default;
+	virtual ~Texture() = default;
 
 	DISALLOW_COPY(Texture);
 	DEFAULT_MOVE(Texture);

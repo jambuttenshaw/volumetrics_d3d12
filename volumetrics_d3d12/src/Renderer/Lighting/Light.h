@@ -1,11 +1,15 @@
 #pragma once
 
 #include "Core.h"
+#include "ShadowMap.h"
+#include "Framework/Camera/Camera.h"
 #include "HlslCompat/StructureHlslCompat.h"
+
 #include "Renderer/D3DPipeline.h"
 
 #include "Renderer/Buffer/Texture.h"
 #include "Renderer/Buffer/UploadBuffer.h"
+#include "Renderer/Memory/MemoryAllocator.h"
 
 using namespace DirectX;
 
@@ -46,8 +50,13 @@ public:
 	DISALLOW_COPY(LightManager);
 	DEFAULT_MOVE(LightManager);
 
+	void UpdateLightingCB(const XMFLOAT3& eyePos);
+
+	const ShadowMap& GetSunShadowMap() const { return m_SunShadowMap; }
+
 	// Call each frame to move the latest lighting data to the GPU
 	void CopyStagingBuffers() const;
+
 	D3D12_GPU_VIRTUAL_ADDRESS GetLightingConstantBuffer() const;
 	D3D12_GPU_VIRTUAL_ADDRESS GetPointLightBuffer() const;
 
@@ -76,6 +85,9 @@ private:
 
 	LightingConstantBuffer m_LightingCBStaging;
 	std::array<PointLightGPUData, s_MaxLights> m_PointLightsStaging;
+
+	XMMATRIX m_ShadowCameraProjectionMatrix;
+	ShadowMap m_SunShadowMap;	// Shadow map for the directional light
 
 	// Light GPU Resources
 	// This is a buffered resource so that light data can be modified between frames

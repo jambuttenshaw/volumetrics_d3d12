@@ -74,8 +74,6 @@ D3DGraphicsContext::D3DGraphicsContext(HWND window, UINT width, UINT height, con
 	m_ImGuiResources = m_SRVHeap->Allocate(1);
 	ASSERT(m_ImGuiResources.IsValid(), "Failed to alloc");
 
-	CreateProjectionMatrix();
-
 	m_Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(m_ClientWidth), static_cast<float>(m_ClientHeight));
 	m_ScissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(m_ClientWidth), static_cast<LONG>(m_ClientHeight));
 
@@ -187,9 +185,6 @@ void D3DGraphicsContext::StartDraw(const PassConstantBuffer& passCB) const
 	const auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_RenderTargets[m_FrameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	m_CommandList->ResourceBarrier(1, &barrier);
 
-	m_CommandList->RSSetViewports(1, &m_Viewport);
-	m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
-
 	// Setup descriptor heaps
 	ID3D12DescriptorHeap* ppHeaps[] = { m_SRVHeap->GetHeap(), m_SamplerHeap->GetHeap() };
 	m_CommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
@@ -216,6 +211,12 @@ void D3DGraphicsContext::EndDraw() const
 	m_CurrentFrameResources->SetFence(fenceValue);
 
 	PIXEndEvent();
+}
+
+void D3DGraphicsContext::RestoreDefaultViewport() const
+{
+	m_CommandList->RSSetViewports(1, &m_Viewport);
+	m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 }
 
 void D3DGraphicsContext::ClearBackBuffer(const XMFLOAT4& clearColor) const
@@ -313,9 +314,6 @@ void D3DGraphicsContext::Resize(UINT width, UINT height)
 	const auto fenceValue = m_DirectQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
 	m_CurrentFrameResources->SetFence(fenceValue);
-
-	// Recreate other objects while GPU is doing work
-	CreateProjectionMatrix();
 
 	// Wait for GPU to finish its work before continuing
 	m_DirectQueue->WaitForIdleCPUBlocking();
@@ -469,8 +467,8 @@ void D3DGraphicsContext::CreateSwapChain()
 
 void D3DGraphicsContext::CreateDescriptorHeaps()
 {
-	m_RTVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, s_FrameCount + 16, true);
-	m_DSVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16, true);
+	m_RTVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_RTV, s_FrameCount + 64, true);
+	m_DSVHeap = std::make_unique<DescriptorHeap>(D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 64, true);
 
 	// SRV/CBV/UAV heap
 	constexpr UINT Count = 256;
@@ -579,11 +577,6 @@ void D3DGraphicsContext::CreateRaytracingInterfaces()
 	D3D_NAME(m_DXRCommandList);
 }
 
-
-void D3DGraphicsContext::CreateProjectionMatrix()
-{
-	m_ProjectionMatrix = XMMatrixPerspectiveFovLH(m_FOV, GetAspectRatio(), m_NearPlane, m_FarPlane);
-}
 
 void D3DGraphicsContext::MoveToNextFrame()
 {

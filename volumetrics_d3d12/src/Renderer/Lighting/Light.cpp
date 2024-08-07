@@ -71,6 +71,13 @@ XMFLOAT3 g_CubemapFaceBitangents[6] = {
 };
 
 
+void CartesianDirectionToSpherical(const XMFLOAT3& direction, float& phi, float& theta)
+{
+	theta = acosf(direction.y);
+	phi = Math::Sign(direction.z) * acosf(direction.x / sqrtf(direction.x * direction.x + direction.z * direction.z));
+}
+
+
 LightManager::LightManager()
 {
 	// Populate default light properties
@@ -87,6 +94,11 @@ LightManager::LightManager()
 		light.Intensity = 0.0f;
 		light.Range = 5.0f;
 	}
+
+	// Set up shadow camera and shadow map
+	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(20.0f, 20.0f, 0.1f, 100.0f);
+
+	m_SunShadowMap.CreateShadowMap(1024, 1024);
 
 	// Create API resources
 	THROW_IF_FAIL(g_D3DGraphicsContext->GetDevice()->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&m_CommandAllocator)));
@@ -128,10 +140,31 @@ LightManager::~LightManager()
 	m_PEMFaceUAVs.Free();
 }
 
+void LightManager::UpdateLightingCB(const XMFLOAT3& eyePos)
+{
+	// Create a view matrix for the directional light
+	XMVECTOR forward = XMVector3Normalize(XMLoadFloat3(&m_LightingCBStaging.DirectionalLight.Direction));
+	XMVECTOR up = { 0.0f, 1.0f, 0.0f };
+
+	XMVECTOR right = XMVector3Normalize(XMVector3Cross(up, forward));
+	up = XMVector3Cross(forward, right);
+
+	// subtract a distance from the eye position to get a position for the camera
+	constexpr float d = 10.0f;
+	//XMVECTOR position = XMLoadFloat3(&eyePos) - d * forward;
+	XMVECTOR position = - d * forward;
+
+	XMMATRIX view = XMMatrixLookAtLH(position, position + forward, up);
+
+	// Now update the CB with the new camera matrix
+	const XMMATRIX viewProj = XMMatrixMultiply(view, m_ShadowCameraProjectionMatrix);
+	m_LightingCBStaging.DirectionalLight.ViewProjection = XMMatrixTranspose(viewProj);
+}
 
 void LightManager::CopyStagingBuffers() const
 {
 	const auto& resources = m_LightingResources.at(g_D3DGraphicsContext->GetCurrentBackBuffer());
+
 	resources.LightingCB.CopyElement(0, m_LightingCBStaging);
 	resources.PointLights.CopyElements(0, static_cast<UINT>(m_PointLightsStaging.size()), m_PointLightsStaging.data());
 }
@@ -519,9 +552,9 @@ void LightManager::DrawGui()
 
 		// Direction should be edited in spherical coordinates
 		bool newDir = false;
-		float theta = acosf(directionalLight.Direction.y);
-		float phi = Math::Sign(directionalLight.Direction.z) * acosf(directionalLight.Direction.x 
-			/ sqrtf(directionalLight.Direction.x * directionalLight.Direction.x + directionalLight.Direction.z * directionalLight.Direction.z));
+		float phi, theta;
+		CartesianDirectionToSpherical(directionalLight.Direction, phi, theta);
+
 		newDir |= ImGui::SliderAngle("Theta", &theta, 1.0f, 179.0f);
 		newDir |= ImGui::SliderAngle("Phi", &phi, -179.0f, 180.0f);
 		if (newDir)
@@ -555,5 +588,12 @@ void LightManager::DrawGui()
 		{
 			light.Intensity = max(0, light.Intensity);
 		}
+	}
+
+	if (ImGui::Begin("Shadow Map"))
+	{
+		ImGui::Image(reinterpret_cast<ImTextureID>(m_SunShadowMap.GetSRV().ptr), { 400.0f, 400.0f });
+
+		ImGui::End();
 	}
 }

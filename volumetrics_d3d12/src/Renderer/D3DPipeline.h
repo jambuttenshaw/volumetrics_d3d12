@@ -25,6 +25,7 @@ struct D3DGraphicsPipelineDesc
 	std::vector<std::wstring> Defines;
 
 	std::vector<DXGI_FORMAT> RenderTargetFormats;
+	DXGI_FORMAT DSVFormat;
 
 	D3D12_DEPTH_STENCIL_DESC DepthStencilDesc = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
 };

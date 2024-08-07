@@ -1,7 +1,10 @@
 #pragma once
+
 #include "Core.h"
+
 #include "D3DPipeline.h"
 #include "Buffer/Texture.h"
+#include "Memory/MemoryAllocator.h"
 
 
 class MaterialManager;
@@ -54,10 +57,15 @@ private:
 	void CreateResolutionDependentResources();
 
 	// Sub-stages in rendering pipeline
+	void RenderShadowMaps() const;
+
 	void ClearGBuffer() const;
 	void GeometryPass() const;
 	void RenderSkybox() const;
 	void LightingPass() const;
+
+	// Submits Draw calls for all geometry in the scene
+	void DrawAllGeometry(ID3D12GraphicsCommandList* commandList, UINT objectCBParamIndex) const;
 
 private:
 	// The scene to render
@@ -95,6 +103,8 @@ private:
 	DescriptorAllocation m_OutputRTV;
 
 	// Pipeline states
+	D3DGraphicsPipeline m_DepthOnlyPipeline;
+
 	D3DGraphicsPipeline m_GeometryPassPipeline;
 	D3DComputePipeline m_LightingPipeline;
 
