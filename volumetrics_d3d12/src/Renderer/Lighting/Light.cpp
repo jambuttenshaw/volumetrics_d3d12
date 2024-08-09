@@ -111,13 +111,6 @@ LightManager::LightManager()
 	m_SamplerDescriptors = g_D3DGraphicsContext->GetSamplerHeap()->Allocate(SamplerCount);
 	ASSERT(m_SamplerDescriptors.IsValid(), "Descriptor allocation failed.");
 
-	m_IrradianceMapFaceUAVs = g_D3DGraphicsContext->GetSRVHeap()->Allocate(6);
-	ASSERT(m_IrradianceMapFaceUAVs.IsValid(), "Descriptor allocation failed.");
-	m_BRDFIntegrationMapUAV = g_D3DGraphicsContext->GetSRVHeap()->Allocate(1);
-	ASSERT(m_BRDFIntegrationMapUAV.IsValid(), "Descriptor allocation failed.");
-	m_PEMFaceUAVs = g_D3DGraphicsContext->GetSRVHeap()->Allocate(6 * m_PEMRoughnessBins);
-	ASSERT(m_PEMFaceUAVs.IsValid(), "Descriptor allocation failed.");
-
 	CreatePipelines();
 	CreateResources();
 
@@ -135,9 +128,6 @@ LightManager::~LightManager()
 {
 	m_GlobalLightingSRVs.Free();
 	m_SamplerDescriptors.Free();
-	m_IrradianceMapFaceUAVs.Free();
-	m_BRDFIntegrationMapUAV.Free();
-	m_PEMFaceUAVs.Free();
 }
 
 void LightManager::UpdateLightingCB(const XMFLOAT3& eyePos)
@@ -272,20 +262,6 @@ void LightManager::CreateResources()
 		srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 
 		device->CreateShaderResourceView(m_IrradianceMap->GetResource(), &srvDesc, m_GlobalLightingSRVs.GetCPUHandle(IrradianceMapSRV));
-
-		// Create UAVs
-		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-		uavDesc.Format = desc.Format;
-		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
-		uavDesc.Texture2DArray.MipSlice = 0;
-		uavDesc.Texture2DArray.ArraySize = 1;
-		uavDesc.Texture2DArray.PlaneSlice = 0;
-
-		for (UINT face = 0; face < 6; face++)
-		{
-			uavDesc.Texture2DArray.FirstArraySlice = face;
-			device->CreateUnorderedAccessView(m_IrradianceMap->GetResource(), nullptr, &uavDesc, m_IrradianceMapFaceUAVs.GetCPUHandle(face));
-		}
 	}
 
 	{
@@ -310,15 +286,6 @@ void LightManager::CreateResources()
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 		device->CreateShaderResourceView(m_BRDFIntegrationMap->GetResource(), &srvDesc, m_GlobalLightingSRVs.GetCPUHandle(BRDFIntegrationMapSRV));
-
-		// Create UAV
-		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-		uavDesc.Format = desc.Format;
-		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-		uavDesc.Texture2D.MipSlice = 0;
-		uavDesc.Texture2D.PlaneSlice = 0;
-
-		device->CreateUnorderedAccessView(m_BRDFIntegrationMap->GetResource(), nullptr, &uavDesc, m_BRDFIntegrationMapUAV.GetCPUHandle());
 	}
 
 	{
@@ -342,25 +309,6 @@ void LightManager::CreateResources()
 		srvDesc.TextureCube.ResourceMinLODClamp = 0.0f;
 
 		device->CreateShaderResourceView(m_PreFilteredEnvironmentMap->GetResource(), &srvDesc, m_GlobalLightingSRVs.GetCPUHandle(PreFilteredEnvironmentMapSRV));
-
-		// Create UAVs
-		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-		uavDesc.Format = desc.Format;
-		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
-		uavDesc.Texture2DArray.ArraySize = 1;
-		uavDesc.Texture2DArray.PlaneSlice = 0;
-
-		for (UINT mip = 0; mip < m_PEMRoughnessBins; mip++)
-		{
-			uavDesc.Texture2DArray.MipSlice = mip;
-			for (UINT face = 0; face < 6; face++)
-			{
-				uavDesc.Texture2DArray.FirstArraySlice = face;
-
-				const UINT index = 6 * mip + face;
-				device->CreateUnorderedAccessView(m_PreFilteredEnvironmentMap->GetResource(), nullptr, &uavDesc, m_PEMFaceUAVs.GetCPUHandle(index));
-			}
-		}
 	}
 
 	{
@@ -404,6 +352,8 @@ void LightManager::CreateResources()
 
 void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 {
+	const auto device = g_D3DGraphicsContext->GetDevice();
+
 	// Set up environment map
 	m_EnvironmentMap = std::move(map);
 
@@ -425,6 +375,61 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 			params.FaceTangent = g_CubemapFaceTangents[face];
 			params.FaceBitangent = g_CubemapFaceBitangents[face];
 		};
+
+
+	// Allocate UAVs
+	DescriptorAllocation irradianceMapFaceUAVs = g_D3DGraphicsContext->GetSRVHeap()->Allocate(6);
+	ASSERT(irradianceMapFaceUAVs.IsValid(), "Descriptor allocation failed.");
+	DescriptorAllocation BRDFIntegrationMapUAV = g_D3DGraphicsContext->GetSRVHeap()->Allocate(1);
+	ASSERT(BRDFIntegrationMapUAV.IsValid(), "Descriptor allocation failed.");
+	DescriptorAllocation PEMFaceUAVs = g_D3DGraphicsContext->GetSRVHeap()->Allocate(6 * m_PEMRoughnessBins);
+	ASSERT(PEMFaceUAVs.IsValid(), "Descriptor allocation failed.");
+
+	// Create UAVs
+	{
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+		uavDesc.Format = m_IrradianceMap->GetFormat();
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+		uavDesc.Texture2DArray.MipSlice = 0;
+		uavDesc.Texture2DArray.ArraySize = 1;
+		uavDesc.Texture2DArray.PlaneSlice = 0;
+
+		for (UINT face = 0; face < 6; face++)
+		{
+			uavDesc.Texture2DArray.FirstArraySlice = face;
+			device->CreateUnorderedAccessView(m_IrradianceMap->GetResource(), nullptr, &uavDesc,	irradianceMapFaceUAVs.GetCPUHandle(face));
+		}
+	}
+
+	{
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+		uavDesc.Format = m_BRDFIntegrationMap->GetFormat();
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uavDesc.Texture2D.MipSlice = 0;
+		uavDesc.Texture2D.PlaneSlice = 0;
+
+		device->CreateUnorderedAccessView(m_BRDFIntegrationMap->GetResource(), nullptr, &uavDesc, BRDFIntegrationMapUAV.GetCPUHandle());
+	}
+
+	{
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+		uavDesc.Format = m_PreFilteredEnvironmentMap->GetFormat();
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+		uavDesc.Texture2DArray.ArraySize = 1;
+		uavDesc.Texture2DArray.PlaneSlice = 0;
+
+		for (UINT mip = 0; mip < m_PEMRoughnessBins; mip++)
+		{
+			uavDesc.Texture2DArray.MipSlice = mip;
+			for (UINT face = 0; face < 6; face++)
+			{
+				uavDesc.Texture2DArray.FirstArraySlice = face;
+
+				const UINT index = 6 * mip + face;
+				device->CreateUnorderedAccessView(m_PreFilteredEnvironmentMap->GetResource(), nullptr, &uavDesc, PEMFaceUAVs.GetCPUHandle(index));
+			}
+		}
+	}
 
 	// Begin processing
 	// First perform synchronization
@@ -470,7 +475,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 				SetParamsForFace(face);
 
 				m_CommandList->SetComputeRoot32BitConstants(IrradianceMapPipelineSignature::ParamsBufferSlot, SizeOfInUint32(GlobalLightingParamsBuffer), &params, 0);
-				m_CommandList->SetComputeRootDescriptorTable(IrradianceMapPipelineSignature::IrradianceMapSlot, m_IrradianceMapFaceUAVs.GetGPUHandle(face));
+				m_CommandList->SetComputeRootDescriptorTable(IrradianceMapPipelineSignature::IrradianceMapSlot, irradianceMapFaceUAVs.GetGPUHandle(face));
 
 				m_CommandList->Dispatch(threadGroupX, threadGroupY, 1);
 			}
@@ -487,7 +492,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 			const UINT threadGroupX = (m_BRDFIntegrationMapResolution + BRDF_INTEGRATION_THREADS - 1) / BRDF_INTEGRATION_THREADS;
 			const UINT threadGroupY = (m_BRDFIntegrationMapResolution + BRDF_INTEGRATION_THREADS - 1) / BRDF_INTEGRATION_THREADS;
 
-			m_CommandList->SetComputeRootDescriptorTable(BRDFIntegrationPipelineSignature::BRDFIntegrationMapSlot, m_BRDFIntegrationMapUAV.GetGPUHandle());
+			m_CommandList->SetComputeRootDescriptorTable(BRDFIntegrationPipelineSignature::BRDFIntegrationMapSlot, BRDFIntegrationMapUAV.GetGPUHandle());
 			m_CommandList->Dispatch(threadGroupX, threadGroupY, 1);
 
 			PIXEndEvent(m_CommandList.Get());
@@ -516,7 +521,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 					const UINT index = 6 * roughnessBin + face;
 
 					m_CommandList->SetComputeRoot32BitConstants(PEMPipelineSignature::ParamsBufferSlot, SizeOfInUint32(GlobalLightingParamsBuffer), &params, 0);
-					m_CommandList->SetComputeRootDescriptorTable(PEMPipelineSignature::PrefilteredEnvironmentMapSlot, m_PEMFaceUAVs.GetGPUHandle(index));
+					m_CommandList->SetComputeRootDescriptorTable(PEMPipelineSignature::PrefilteredEnvironmentMapSlot, PEMFaceUAVs.GetGPUHandle(index));
 
 					m_CommandList->Dispatch(threadGroupX, threadGroupY, 1);
 				}
@@ -549,6 +554,10 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 	directQueue->InsertWaitForQueue(computeQueue);
 	// Wait until completion
 	computeQueue->WaitForFenceCPUBlocking(m_PreviousWorkFence);
+
+	irradianceMapFaceUAVs.Free();
+	BRDFIntegrationMapUAV.Free();
+	PEMFaceUAVs.Free();
 }
 
 

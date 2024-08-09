@@ -117,13 +117,6 @@ private:
 	DescriptorAllocation m_GlobalLightingSRVs;
 	DescriptorAllocation m_SamplerDescriptors;
 
-	// TODO: These can be released once processing has finished
-	// UAVs for each face of the irradiance map
-	DescriptorAllocation m_IrradianceMapFaceUAVs;
-	DescriptorAllocation m_BRDFIntegrationMapUAV;
-	// UAVs for each face and each mip of the PEM
-	DescriptorAllocation m_PEMFaceUAVs;
-	
 	// API resources to process the environment
 	// As this is not an operation that occurs often it will just block the render queue to process the environment map
 	ComPtr<ID3D12CommandAllocator> m_CommandAllocator;
