@@ -35,10 +35,11 @@ struct PassConstantBuffer
 
 	UINT Flags;
 
+	float NearPlane;
+	float FarPlane;
+
 	float TotalTime;
 	float DeltaTime;
-
-	XMUINT2 Padding;
 };
 
 // Per-object data per frame
@@ -88,6 +89,16 @@ struct MaterialGPUData
 	XMFLOAT3 Albedo;
 	float Roughness;
 	float Metalness;
+};
+
+
+
+// Volumetrics
+
+struct VolumetricsConstantBuffer
+{
+	XMUINT3 VolumeResolution;
+	float MaxVolumeDistance;	// The furthest view-space depth that the volume maps to
 };
 
 

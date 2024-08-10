@@ -17,4 +17,6 @@ typedef uint64_t UINT64;
 
 #define FLOAT_MAX 3.402823466e+38F
 
+#define PI 3.141592654f
+
 #endif // HLSLCOMPAT_H
