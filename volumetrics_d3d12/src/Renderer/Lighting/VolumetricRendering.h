@@ -43,6 +43,9 @@ public:
 	void RenderVolumetrics() const;
 	void ApplyVolumetrics(const ApplyVolumetricsParams& params) const;
 
+
+	void DrawGui();
+
 private:
 	void CreateResources();
 	void CreatePipelines();
@@ -84,6 +87,7 @@ private:
 	Texture m_LightScatteringVolume;
 
 	UploadBuffer<VolumetricsConstantBuffer> m_VolumeConstantBuffer;
+	UploadBuffer<GlobalFogConstantBuffer> m_GlobalFogConstantBuffer;
 
 	// Pipelines
 	D3DComputePipeline m_DensityEstimationPipeline;
@@ -97,4 +101,6 @@ private:
 
 
 	const LightManager* m_LightManager;
+
+	GlobalFogConstantBuffer m_GlobalFogStagingBuffer;
 };

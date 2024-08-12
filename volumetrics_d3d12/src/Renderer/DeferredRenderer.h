@@ -54,6 +54,9 @@ public:
 	ID3D12Resource* GetGBufferResource(UINT index) const { return m_RenderTargets.at(index).GetResource(); }
 	ID3D12Resource* GetDepthBufferResource() const { return m_DepthBuffer.GetResource(); }
 
+
+	void DrawGui();
+
 private:
 	void CreatePipelines();
 	void CreateResolutionDependentResources();

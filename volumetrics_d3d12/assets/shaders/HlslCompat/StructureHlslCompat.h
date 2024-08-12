@@ -104,5 +104,10 @@ struct VolumetricsConstantBuffer
 	float MaxVolumeDistance;	// The furthest view-space depth that the volume maps to
 };
 
+struct GlobalFogConstantBuffer
+{
+	XMFLOAT3 Albedo;
+	float Extinction;
+};
 
 #endif

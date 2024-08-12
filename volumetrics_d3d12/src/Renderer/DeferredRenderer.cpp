@@ -454,6 +454,8 @@ void DeferredRenderer::Render() const
 	};
 	m_VolumeRenderer->ApplyVolumetrics(params);
 
+	const auto barrier = CD3DX12_RESOURCE_BARRIER::UAV(m_OutputResource.GetResource());
+	commandList->ResourceBarrier(1, &barrier);
 
 	// Switch resource states back
 	{
@@ -627,4 +629,10 @@ void DeferredRenderer::DrawAllGeometry(ID3D12GraphicsCommandList* commandList, U
 
 		commandList->DrawIndexedInstanced(geometry->IndexBuffer.GetElementCount(), 1, 0, 0, 0);
 	}
+}
+
+
+void DeferredRenderer::DrawGui()
+{
+	m_VolumeRenderer->DrawGui();
 }

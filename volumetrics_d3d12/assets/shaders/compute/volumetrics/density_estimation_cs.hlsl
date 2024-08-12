@@ -4,6 +4,9 @@
 #define HLSL
 #include "../../HlslCompat/StructureHlslCompat.h"
 
+
+ConstantBuffer<GlobalFogConstantBuffer> m_GlobalFogCB : register(b0);
+
 /*
  * Format: RGBA16F
  * RGB - Scattering
@@ -21,7 +24,9 @@ RWTexture3D<float4> g_VBufferB : register(u1);
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-	g_VBufferA[DTid] = float4(0.8f, 0.5f, 0.0f, 0.5f);
+	const float3 scattering = m_GlobalFogCB.Albedo * m_GlobalFogCB.Extinction;
+
+	g_VBufferA[DTid] = float4(scattering, m_GlobalFogCB.Extinction);
 	g_VBufferB[DTid] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 }
 

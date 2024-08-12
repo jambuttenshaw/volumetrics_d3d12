@@ -26,18 +26,24 @@ void main(uint3 DTid : SV_DispatchThreadID)
 		const uint3 layerCoordinate = uint3(DTid.xy, layer);
 
 		float4 scatteringAndExtinction = g_LightScatteringVolume[layerCoordinate];
+		const float3 scattering = scatteringAndExtinction.rgb;
+		const float extinction = scatteringAndExtinction.a;
 
 		const float sliceDepth = ZSliceToFroxelDepth(layer + 0.5f, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
-		const float stepLength = sliceDepth - previousSliceDepth;
+		const float stepLength = length(sliceDepth - previousSliceDepth);
 		previousSliceDepth = sliceDepth;
 
-		const float transmittance = exp(-scatteringAndExtinction.w * stepLength);
+		const float transmittance = exp(-extinction * stepLength);
 
-		const float3 scatteringIntegratedOverSlice = (scatteringAndExtinction.rgb - scatteringAndExtinction.rgb * transmittance) / max(scatteringAndExtinction.w, 0.00001f);
+		const float3 scatteringIntegratedOverSlice = (scattering - scattering * transmittance) / max(extinction, 0.00001f);
 		accumulatedLighting += scatteringIntegratedOverSlice * accumulatedTransmittance;
+
+		//accumulatedLighting += scattering * accumulatedTransmittance * stepLength;
+
 		accumulatedTransmittance *= transmittance;
 
 		g_LightScatteringVolume[layerCoordinate] = float4(accumulatedLighting, accumulatedTransmittance);
+		//g_LightScatteringVolume[layerCoordinate] = float4(stepLength, sliceDepth, transmittance, scatteringIntegratedOverSlice.x);
 	}
 }
 

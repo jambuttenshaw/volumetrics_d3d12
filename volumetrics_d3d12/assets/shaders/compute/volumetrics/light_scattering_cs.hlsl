@@ -63,8 +63,6 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	const float3 emission = vbb.rgb;
 	const float anisotropy = vbb.a;
 
-	const float3 albedo = scattering / extinction;
-
 	// Get location of this froxel in world space
 	const float depth = ZSliceToFroxelDepth(DTid.z, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
 
@@ -83,17 +81,18 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	// Evaluate in-scattering from directional light
 	{
-		const float3 l = -g_LightCB.DirectionalLight.Direction;
+		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
 		const float3 el = g_LightCB.DirectionalLight.Intensity * g_LightCB.DirectionalLight.Color;
 		const float3 v = -v_vs;
 
 		const float phase = HGPhaseFunction(v, l, anisotropy);
-		const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
+		//const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
+		const float visibility = 1.0f;
 
 		in_scattering += phase * visibility * el;
 	}
 
-	const float3 l_scat = albedo * in_scattering;
+	const float3 l_scat = in_scattering * scattering;
 
 	g_LightScatteringVolume[DTid] = float4(l_scat, extinction);
 }

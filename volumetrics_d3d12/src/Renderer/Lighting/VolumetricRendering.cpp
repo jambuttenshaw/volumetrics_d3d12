@@ -1,6 +1,10 @@
 #include "pch.h"
 #include "VolumetricRendering.h"
 
+#include <pix3.h>
+
+#include "imgui.h"
+
 #include "Light.h"
 #include "Renderer/D3DGraphicsContext.h"
 
@@ -9,7 +13,8 @@ namespace DensityEstimationRootSignature
 {
 	enum Parameters
 	{
-		VBuffer = 0,
+		GlobalFogConstantBuffer = 0,
+		VBuffer,
 		Count
 	};
 }
@@ -72,6 +77,9 @@ VolumetricRendering::VolumetricRendering(const LightManager& lightManager)
 
 	CreateResources();
 	CreatePipelines();
+
+	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(0.01f, 0.01f, 0.01f);
+	m_GlobalFogStagingBuffer.Extinction = 0.0f;
 }
 
 VolumetricRendering::~VolumetricRendering()
@@ -153,6 +161,8 @@ void VolumetricRendering::CreateResources()
 	};
 	m_VolumeConstantBuffer.CopyElement(0, cb);
 
+	m_GlobalFogConstantBuffer.Allocate(device, D3DGraphicsContext::GetBackBufferCount(), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Global Fog Constant Buffer");
+
 
 	// Create volume sampler
 	m_LightVolumeSampler = g_D3DGraphicsContext->GetSamplerHeap()->Allocate(1);
@@ -184,6 +194,7 @@ void VolumetricRendering::CreatePipelines()
 		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 2, 0);
 
 		CD3DX12_ROOT_PARAMETER1 rootParams[DensityEstimationRootSignature::Count];
+		rootParams[DensityEstimationRootSignature::GlobalFogConstantBuffer].InitAsConstantBufferView(0);
 		rootParams[DensityEstimationRootSignature::VBuffer].InitAsDescriptorTable(1, &ranges[0]);
 
 		D3DComputePipelineDesc psoDesc = {
@@ -272,39 +283,53 @@ void VolumetricRendering::RenderVolumetrics() const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
 
+	// Copy staging
+	m_GlobalFogConstantBuffer.CopyElement(g_D3DGraphicsContext->GetCurrentBackBuffer(), m_GlobalFogStagingBuffer);
+
 	std::vector<D3D12_RESOURCE_BARRIER> barriers;
 	auto FlushBarriers = [&]()
 	{
 		commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
 		barriers.clear();
 	};
-	auto AddBarrier = [&](const auto& resource, auto before, auto after)
+	auto AddTransition = [&](const auto& resource, auto before, auto after)
 		{
 			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(resource.GetResource(), before, after));
 		};
+	auto AddUAV = [&](const auto& resource)
+		{
+			barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(resource.GetResource()));
+		};
 
-	AddBarrier(m_VBufferA, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	AddBarrier(m_VBufferB, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	AddTransition(m_VBufferA, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	AddTransition(m_VBufferB, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	FlushBarriers();
 
 	DensityEstimation();
 
-	AddBarrier(m_VBufferA, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	AddBarrier(m_VBufferB, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	AddBarrier(m_LightScatteringVolume, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	AddUAV(m_VBufferA);
+	AddUAV(m_VBufferB);
+	AddTransition(m_VBufferA, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	AddTransition(m_VBufferB, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	AddTransition(m_LightScatteringVolume, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	FlushBarriers();
 
 	LightScattering();
 
+	AddUAV(m_LightScatteringVolume);
+	FlushBarriers();
+
 	VolumeIntegration();
 
-	AddBarrier(m_LightScatteringVolume, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	AddUAV(m_LightScatteringVolume);
+	AddTransition(m_LightScatteringVolume, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 	FlushBarriers();
 }
 
 void VolumetricRendering::ApplyVolumetrics(const ApplyVolumetricsParams& params) const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(19), "Apply Volumetrics");
 
 	m_ApplyVolumetricsPipeline.Bind(commandList);
 
@@ -319,23 +344,30 @@ void VolumetricRendering::ApplyVolumetrics(const ApplyVolumetricsParams& params)
 	const UINT groupsY = (params.OutputResolution.y + 7) / 8;
 
 	commandList->Dispatch(groupsX, groupsY, 1);
+
+	PIXEndEvent(commandList);
 }
 
 
 void VolumetricRendering::DensityEstimation() const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(21), "Density Estimation");
 
 	m_DensityEstimationPipeline.Bind(commandList);
 
+	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::GlobalFogConstantBuffer, m_GlobalFogConstantBuffer.GetAddressOfElement(g_D3DGraphicsContext->GetCurrentBackBuffer()));
 	commandList->SetComputeRootDescriptorTable(DensityEstimationRootSignature::VBuffer, m_Descriptors.GetGPUHandle(UAV_VBufferA));
 
 	commandList->Dispatch(m_DispatchGroups.x, m_DispatchGroups.y, m_DispatchGroups.z);
+
+	PIXEndEvent(commandList);
 }
 
 void VolumetricRendering::LightScattering() const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(22), "Light Scattering");
 
 	m_LightScatteringPipeline.Bind(commandList);
 
@@ -348,11 +380,14 @@ void VolumetricRendering::LightScattering() const
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::LightScatteringVolume, m_Descriptors.GetGPUHandle(UAV_LightScatteringVolume));
 
 	commandList->Dispatch(m_DispatchGroups.x, m_DispatchGroups.y, m_DispatchGroups.z);
+
+	PIXEndEvent(commandList);
 }
 
 void VolumetricRendering::VolumeIntegration() const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(23), "Volume Integration");
 
 	m_VolumeIntegrationPipeline.Bind(commandList);
 
@@ -363,4 +398,14 @@ void VolumetricRendering::VolumeIntegration() const
 	// Dispatch a single group along the z axis
 	// A single slice will 'march' through the volume to accumulate values
 	commandList->Dispatch(m_DispatchGroups.x, m_DispatchGroups.y, 1);
+
+	PIXEndEvent(commandList);
+}
+
+
+void VolumetricRendering::DrawGui()
+{
+	ImGui::Text("Global Fog");
+	ImGui::SliderFloat3("Albedo", &m_GlobalFogStagingBuffer.Albedo.x, 0.0f, 1.0f);
+	ImGui::SliderFloat("Extinction", &m_GlobalFogStagingBuffer.Extinction, 0.0f, 1.0f);
 }

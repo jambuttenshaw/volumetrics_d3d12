@@ -510,6 +510,9 @@ bool D3DApplication::ImGuiApplicationInfo()
 
 			ImGui::Text("Lighting Options");
 		}
+		ImGui::Separator();
+
+		m_DeferredRenderer->DrawGui();
 
 		ImGui::Separator();
 		ImGui::Text("Lighting");
