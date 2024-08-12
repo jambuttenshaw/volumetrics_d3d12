@@ -35,7 +35,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	const float2 uv = (DTid.xy + float2(0.5f, 0.5f)) * g_PassCB.InvRTSize;
 
 	// get view position
-	float4 p_ndc = float4(2.0f * uv - 1.0f, 2.0f * sceneDepth - 1.0f, 1.0f);
+	float4 p_ndc = float4(2.0f * uv - 1.0f, sceneDepth, 1.0f);
 	p_ndc.y = -p_ndc.y;
 
 	float4 p_vs = mul(p_ndc, g_PassCB.InvProj);

@@ -14,6 +14,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 {
 	Log::Init();
 
-	D3DApplication app(1600, 900, L"SDF D3D12");
+	D3DApplication app(1800, 1000, L"SDF D3D12");
 	return Win32Application::Run(&app);
 }

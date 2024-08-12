@@ -38,12 +38,9 @@ void main(uint3 DTid : SV_DispatchThreadID)
 		const float3 scatteringIntegratedOverSlice = (scattering - scattering * transmittance) / max(extinction, 0.00001f);
 		accumulatedLighting += scatteringIntegratedOverSlice * accumulatedTransmittance;
 
-		//accumulatedLighting += scattering * accumulatedTransmittance * stepLength;
-
 		accumulatedTransmittance *= transmittance;
 
 		g_LightScatteringVolume[layerCoordinate] = float4(accumulatedLighting, accumulatedTransmittance);
-		//g_LightScatteringVolume[layerCoordinate] = float4(stepLength, sliceDepth, transmittance, scatteringIntegratedOverSlice.x);
 	}
 }
 

@@ -66,16 +66,17 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	// Get location of this froxel in world space
 	const float depth = ZSliceToFroxelDepth(DTid.z, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
 
+	// Need to get the depth in NDC
+	float4 depthNDC = mul(float4(0.0f, 0.0f, depth, 1.0f), g_PassCB.Proj);
+	depthNDC /= depthNDC.w;
+
 	// we want to calculate at the center of each froxel
 	float2 sliceUV = (DTid.xy + float2(0.5f, 0.5f)) / (float2) (g_VolumeCB.VolumeResolution.xy);
+	float2 sliceNDC = (2.0f * sliceUV - 1.0f) * float2(1.0f, -1.0f);
 
-	// v in view space
-	const float3 v_vs = normalize(float3(sliceUV.x / g_PassCB.Proj._11, sliceUV.y / g_PassCB.Proj._22, 1.0f));
-
-	// froxel centre in view space
-	const float3 p_vs = v_vs * depth;
-	// froxel centre in world space
-	const float3 p_ws = mul(float4(p_vs, 1.0f), g_PassCB.InvView).xyz;
+	float4 p_vs = mul(float4(sliceNDC, depthNDC.z, 1.0f), g_PassCB.InvProj);
+	p_vs /= p_vs.w;
+	float4 p_ws = mul(p_vs, g_PassCB.InvView);
 
 	float3 in_scattering = emission; // add emission to light scattered into the cameras path at this location
 
@@ -83,11 +84,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	{
 		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
 		const float3 el = g_LightCB.DirectionalLight.Intensity * g_LightCB.DirectionalLight.Color;
-		const float3 v = -v_vs;
+		const float3 v = normalize(g_PassCB.WorldEyePos - p_ws.xyz);
 
 		const float phase = HGPhaseFunction(v, l, anisotropy);
-		//const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
-		const float visibility = 1.0f;
+		const float visibility = GetVisibility(p_ws.xyz); // Sample shadow map to get visibility
 
 		in_scattering += phase * visibility * el;
 	}

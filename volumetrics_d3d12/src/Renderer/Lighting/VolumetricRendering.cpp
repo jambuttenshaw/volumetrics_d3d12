@@ -78,8 +78,8 @@ VolumetricRendering::VolumetricRendering(const LightManager& lightManager)
 	CreateResources();
 	CreatePipelines();
 
-	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(0.01f, 0.01f, 0.01f);
-	m_GlobalFogStagingBuffer.Extinction = 0.0f;
+	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(0.1f, 0.1f, 0.1f);
+	m_GlobalFogStagingBuffer.Extinction = 0.3f;
 }
 
 VolumetricRendering::~VolumetricRendering()
