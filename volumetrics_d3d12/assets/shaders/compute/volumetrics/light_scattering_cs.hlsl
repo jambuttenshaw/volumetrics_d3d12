@@ -36,18 +36,10 @@ SamplerComparisonState g_ShadowMapSampler : register(s0);
 RWTexture3D<float4> g_LightScatteringVolume : register(u0);
 
 
-// Froxel helper functions
-float ZSliceToFroxelDepth(uint slice)
-{
-	const float sliceNormalized = (float) (slice) / (float) (g_VolumeCB.VolumeResolution.z - 1);
-	return g_PassCB.NearPlane - 1 + (1 + g_VolumeCB.MaxVolumeDistance - g_PassCB.NearPlane) * exp2(sliceNormalized);
-}
-
-
 // Shadowing
 float GetVisibility(float3 worldPos)
 {
-	float4 shadowPos = mul(worldPos, g_LightCB.DirectionalLight.ViewProjection);
+	float4 shadowPos = mul(float4(worldPos, 1.0f), g_LightCB.DirectionalLight.ViewProjection);
 	shadowPos /= shadowPos.w;
 
 	float2 shadowMapUV = shadowPos.xy * 0.5f + 0.5f;
@@ -59,7 +51,7 @@ float GetVisibility(float3 worldPos)
 
 
 [numthreads(8, 8, 8)]
-void main(uint3 DTid : S_DispatchThreadID)
+void main(uint3 DTid : SV_DispatchThreadID)
 {
 	// Load values from volume buffer
 	const float4 vba = g_VBufferA[DTid];
@@ -74,7 +66,7 @@ void main(uint3 DTid : S_DispatchThreadID)
 	const float3 albedo = scattering / extinction;
 
 	// Get location of this froxel in world space
-	const float depth = ZSliceToFroxelDepth(DTid.z);
+	const float depth = ZSliceToFroxelDepth(DTid.z, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
 
 	// we want to calculate at the center of each froxel
 	float2 sliceUV = (DTid.xy + float2(0.5f, 0.5f)) / (float2) (g_VolumeCB.VolumeResolution.xy);
@@ -84,11 +76,10 @@ void main(uint3 DTid : S_DispatchThreadID)
 
 	// froxel centre in view space
 	const float3 p_vs = v_vs * depth;
+	// froxel centre in world space
+	const float3 p_ws = mul(float4(p_vs, 1.0f), g_PassCB.InvView).xyz;
 
-	const float3 v_ws = mul(v_vs, g_PassCB.InvView);
-	const float3 p_ws = mul(p_vs, g_PassCB.InvView);
-
-	float3 in_scattering = float3(0.0f, 0.0f, 0.0f);
+	float3 in_scattering = emission; // add emission to light scattered into the cameras path at this location
 
 	// Evaluate in-scattering from directional light
 	{

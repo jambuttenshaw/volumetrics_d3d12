@@ -1,7 +1,9 @@
 #pragma once
 #include "Core.h"
+#include "HlslCompat/StructureHlslCompat.h"
 #include "Renderer/D3DPipeline.h"
 #include "Renderer/Buffer/Texture.h"
+#include "Renderer/Buffer/UploadBuffer.h"
 #include "Renderer/Memory/MemoryAllocator.h"
 
 using namespace DirectX;
@@ -23,13 +25,23 @@ class VolumetricRendering
 	};
 
 public:
-	VolumetricRendering(LightManager& lightManager);
+	struct ApplyVolumetricsParams
+	{
+		D3D12_GPU_DESCRIPTOR_HANDLE OutputUAV;
+		D3D12_GPU_DESCRIPTOR_HANDLE DepthBufferSRV;
+
+		XMUINT2 OutputResolution;
+	};
+
+public:
+	VolumetricRendering(const LightManager& lightManager);
 	~VolumetricRendering();
 
 	DISALLOW_COPY(VolumetricRendering);
 	DEFAULT_MOVE(VolumetricRendering);
 
 	void RenderVolumetrics() const;
+	void ApplyVolumetrics(const ApplyVolumetricsParams& params) const;
 
 private:
 	void CreateResources();
@@ -43,6 +55,8 @@ private:
 private:
 	XMUINT3 m_VolumeResolution = { 256, 144, 128 };
 	XMUINT3 m_DispatchGroups;
+
+	float m_MaxVolumeDistance = 50.0f;
 
 	DXGI_FORMAT m_Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
@@ -69,14 +83,18 @@ private:
 	*/
 	Texture m_LightScatteringVolume;
 
+	UploadBuffer<VolumetricsConstantBuffer> m_VolumeConstantBuffer;
+
 	// Pipelines
 	D3DComputePipeline m_DensityEstimationPipeline;
 	D3DComputePipeline m_LightScatteringPipeline;
 	D3DComputePipeline m_VolumeIntegrationPipeline;
+	D3DComputePipeline m_ApplyVolumetricsPipeline;
 
 	// SRV and UAV for each volume
 	DescriptorAllocation m_Descriptors;
+	DescriptorAllocation m_LightVolumeSampler;
 
 
-	LightManager* m_LightManager;
+	const LightManager* m_LightManager;
 };

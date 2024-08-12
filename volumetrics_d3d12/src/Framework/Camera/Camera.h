@@ -38,6 +38,9 @@ public:
 	inline void SetOrthographic(bool ortho) { m_Orthographic = ortho; m_ProjectionDirty = true; }
 	inline void SetAspectRatio(float aspectRatio) { m_AspectRatio = aspectRatio; m_ProjectionDirty = true; }
 
+	inline float GetNearPlane() const { return m_NearPlane; }
+	inline float GetFarPlane() const { return m_FarPlane; }
+
 	inline const XMMATRIX& GetProjectionMatrix() { RebuildProjIfDirty(); return m_ProjectionMatrix; }
 
 private:

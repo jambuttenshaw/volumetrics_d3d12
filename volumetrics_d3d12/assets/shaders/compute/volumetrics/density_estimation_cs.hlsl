@@ -21,7 +21,7 @@ RWTexture3D<float4> g_VBufferB : register(u1);
 [numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_DispatchThreadID)
 {
-	g_VBufferA[DTid] = float4(0.5f, 0.5f, 0.5f, 0.5f);
+	g_VBufferA[DTid] = float4(0.8f, 0.5f, 0.0f, 0.5f);
 	g_VBufferB[DTid] = float4(0.0f, 0.0f, 0.0f, 0.0f);
 }
 

@@ -35,6 +35,9 @@ struct PassConstantBuffer
 
 	UINT Flags;
 
+	XMUINT2 RTSize;
+	XMFLOAT2 InvRTSize;
+
 	float NearPlane;
 	float FarPlane;
 

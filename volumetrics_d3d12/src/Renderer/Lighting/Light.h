@@ -54,6 +54,7 @@ public:
 	void UpdateLightingCB(const XMFLOAT3& eyePos);
 
 	const ShadowMap& GetSunShadowMap() const { return m_SunShadowMap; }
+	D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSampler() const { return m_SamplerDescriptors.GetGPUHandle(ShadowMapSampler); }
 
 	// Call each frame to move the latest lighting data to the GPU
 	void CopyStagingBuffers() const;

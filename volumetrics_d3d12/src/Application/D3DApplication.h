@@ -92,7 +92,7 @@ private:
 	// GUI
 	inline static constexpr int m_MinFontSize = 10;
 	inline static constexpr int m_MaxFontSize = 20;
-	int m_FontSize = 12;
+	int m_FontSize = 18;
 	std::map<int, struct ImFont*> m_Fonts;
 
 	bool m_DisableGUI = false;

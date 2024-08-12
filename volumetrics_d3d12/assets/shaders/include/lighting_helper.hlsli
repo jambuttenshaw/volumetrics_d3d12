@@ -1,8 +1,6 @@
 #ifndef LIGHTINGHELPER_H
 #define LIGHTINGHELPER_H
 
-#define PI 3.14159268535f
-
 
 // DIFFUSE NDF's
 float3 lambertian_diffuse(float3 albedo)

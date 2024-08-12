@@ -353,6 +353,12 @@ void D3DApplication::UpdatePassCB()
 
 	m_PassCB.WorldEyePos = m_Camera.GetPosition();
 
+	m_PassCB.RTSize = XMUINT2(m_Width, m_Height);
+	m_PassCB.InvRTSize = XMFLOAT2(1.0f / static_cast<float>(m_Width), 1.0f / static_cast<float>(m_Height));
+
+	m_PassCB.NearPlane = m_Camera.GetNearPlane();
+	m_PassCB.FarPlane = m_Camera.GetFarPlane();
+
 	m_PassCB.TotalTime = m_Timer.GetTimeSinceReset();
 	m_PassCB.DeltaTime = m_Timer.GetDeltaTime();
 }

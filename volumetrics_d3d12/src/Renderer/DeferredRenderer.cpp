@@ -64,8 +64,44 @@ namespace LightingPassRootSignature
 
 DeferredRenderer::DeferredRenderer()
 {
+	CreatePipelines();
 	CreateResolutionDependentResources();
+}
 
+DeferredRenderer::~DeferredRenderer()
+{
+	// Free descriptors
+	m_RTVs.Free();
+	m_DSV.Free();
+	m_SRVs.Free();
+
+	m_OutputUAV.Free();
+	m_OutputRTV.Free();
+}
+
+void DeferredRenderer::SetScene(const Scene& scene, const LightManager& lightManager, const MaterialManager& materialManager)
+{
+	m_Scene = &scene;
+	m_LightManager = &lightManager;
+	m_MaterialManager = &materialManager;
+
+	m_VolumeRenderer = std::make_unique<VolumetricRendering>(*m_LightManager);
+}
+
+void DeferredRenderer::OnBackBufferResize()
+{
+	m_RTVs.Free();
+	m_DSV.Free();
+	m_SRVs.Free();
+
+	m_OutputUAV.Free();
+	m_OutputRTV.Free();
+
+	CreateResolutionDependentResources();
+}
+
+void DeferredRenderer::CreatePipelines()
+{
 	// Create geometry pass pipeline state
 	{
 		D3DGraphicsPipelineDesc psoDesc = {};
@@ -116,7 +152,7 @@ DeferredRenderer::DeferredRenderer()
 
 		psoDesc.NumRootParameters = DepthPassRootSignature::Count;
 		psoDesc.RootParameters = rootParameters;
-		psoDesc.RootSignatureFlags = 
+		psoDesc.RootSignatureFlags =
 			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
 			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
@@ -232,37 +268,6 @@ DeferredRenderer::DeferredRenderer()
 		m_LightingPipeline.Create(&psoDesc);
 	}
 }
-
-DeferredRenderer::~DeferredRenderer()
-{
-	// Free descriptors
-	m_RTVs.Free();
-	m_DSV.Free();
-	m_SRVs.Free();
-
-	m_OutputUAV.Free();
-	m_OutputRTV.Free();
-}
-
-void DeferredRenderer::SetScene(const Scene& scene, const LightManager& lightManager, const MaterialManager& materialManager)
-{
-	m_Scene = &scene;
-	m_LightManager = &lightManager;
-	m_MaterialManager = &materialManager;
-}
-
-void DeferredRenderer::OnBackBufferResize()
-{
-	m_RTVs.Free();
-	m_DSV.Free();
-	m_SRVs.Free();
-
-	m_OutputUAV.Free();
-	m_OutputRTV.Free();
-
-	CreateResolutionDependentResources();
-}
-
 
 void DeferredRenderer::CreateResolutionDependentResources()
 {
@@ -438,6 +443,17 @@ void DeferredRenderer::Render() const
 	}
 
 	LightingPass();
+
+	// Perform volume rendering
+	m_VolumeRenderer->RenderVolumetrics();
+	const VolumetricRendering::ApplyVolumetricsParams params
+	{
+		.OutputUAV = m_OutputUAV.GetGPUHandle(),
+		.DepthBufferSRV = m_SRVs.GetGPUHandle(GB_SRV_Depth),
+		.OutputResolution = { g_D3DGraphicsContext->GetClientWidth(), g_D3DGraphicsContext->GetClientHeight() }
+	};
+	m_VolumeRenderer->ApplyVolumetrics(params);
+
 
 	// Switch resource states back
 	{

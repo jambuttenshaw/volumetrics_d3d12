@@ -4,6 +4,7 @@
 
 #include "D3DPipeline.h"
 #include "Buffer/Texture.h"
+#include "Lighting/VolumetricRendering.h"
 #include "Memory/MemoryAllocator.h"
 
 
@@ -54,6 +55,7 @@ public:
 	ID3D12Resource* GetDepthBufferResource() const { return m_DepthBuffer.GetResource(); }
 
 private:
+	void CreatePipelines();
 	void CreateResolutionDependentResources();
 
 	// Sub-stages in rendering pipeline
@@ -73,6 +75,8 @@ private:
 
 	const LightManager* m_LightManager = nullptr;
 	const MaterialManager* m_MaterialManager = nullptr;
+
+	std::unique_ptr<VolumetricRendering> m_VolumeRenderer;
 
 	// G-buffer resources
 	// The deferred renderer owns:
