@@ -29,6 +29,7 @@ namespace LightScatteringRootSignature
 		LightConstantBuffer,
 		VolumeConstantBuffer,
 		VBuffer,
+		PointLightBuffer,
 		SunShadowMap,
 		ShadowSampler,
 		LightScatteringVolume,
@@ -80,8 +81,8 @@ VolumetricRendering::VolumetricRendering(const LightManager& lightManager)
 	CreateResources();
 	CreatePipelines();
 
-	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(3.0f, 3.0f, 3.0f);
-	m_GlobalFogStagingBuffer.Extinction = 0.5f;
+	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(1.5f, 1.5f, 1.5f);
+	m_GlobalFogStagingBuffer.Extinction = 0.25f;
 }
 
 VolumetricRendering::~VolumetricRendering()
@@ -214,7 +215,7 @@ void VolumetricRendering::CreatePipelines()
 	{
 		CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
 		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0);
-		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 2);
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
 		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0);
 		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
 
@@ -223,6 +224,7 @@ void VolumetricRendering::CreatePipelines()
 		rootParams[LightScatteringRootSignature::LightConstantBuffer].InitAsConstantBufferView(1);
 		rootParams[LightScatteringRootSignature::VolumeConstantBuffer].InitAsConstantBufferView(2);
 		rootParams[LightScatteringRootSignature::VBuffer].InitAsDescriptorTable(1, &ranges[0]);
+		rootParams[LightScatteringRootSignature::PointLightBuffer].InitAsShaderResourceView(2);
 		rootParams[LightScatteringRootSignature::SunShadowMap].InitAsDescriptorTable(1, &ranges[1]);
 		rootParams[LightScatteringRootSignature::ShadowSampler].InitAsDescriptorTable(1, &ranges[2]);
 		rootParams[LightScatteringRootSignature::LightScatteringVolume].InitAsDescriptorTable(1, &ranges[3]);
@@ -381,6 +383,7 @@ void VolumetricRendering::LightScattering() const
 	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::LightConstantBuffer, m_LightManager->GetLightingConstantBuffer());
 	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(0));
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::VBuffer, m_Descriptors.GetGPUHandle(SRV_VBufferA));
+	commandList->SetComputeRootShaderResourceView(LightScatteringRootSignature::PointLightBuffer, m_LightManager->GetPointLightBuffer());
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::SunShadowMap, m_LightManager->GetSunShadowMap().GetSRV());
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::ShadowSampler, m_LightManager->GetShadowSampler());
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::LightScatteringVolume, m_Descriptors.GetGPUHandle(UAV_LightScatteringVolume));
@@ -436,5 +439,5 @@ void VolumetricRendering::DrawGui()
 		m_GlobalFogStagingBuffer.Emission = emission;
 	}
 
-	ImGui::SliderFloat("Anisotropy", &m_GlobalFogStagingBuffer.Anisotropy, 0.0f, 0.999f);
+	ImGui::SliderFloat("Anisotropy", &m_GlobalFogStagingBuffer.Anisotropy, -0.99f, 0.99f);
 }

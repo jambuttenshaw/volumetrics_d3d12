@@ -6,6 +6,7 @@
 #include "../../HlslCompat/StructureHlslCompat.h"
 
 #include "volumetrics.hlsli"
+#include "../../include/lighting_helper.hlsli"
 
 
 ConstantBuffer<PassConstantBuffer> g_PassCB : register(b0);
@@ -27,7 +28,9 @@ Texture3D<float4> g_VBufferA : register(t0);
 Texture3D<float4> g_VBufferB : register(t1);
 
 
-Texture2D<float> g_SunShadowMap : register(t2);
+// Scene Lighting resources
+StructuredBuffer<PointLightGPUData> g_PointLights : register(t2);
+Texture2D<float> g_SunShadowMap : register(t3);
 
 
 SamplerComparisonState g_ShadowMapSampler : register(s0);
@@ -81,6 +84,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	// Get location of this froxel in world space
 	const float3 p_ws = ComputeWorldSpacePositionFromFroxelIndex(DTid);
+	const float3 v = normalize(p_ws - g_PassCB.WorldEyePos);
 
 	float3 in_scattering = emission; // add emission to light scattered into the cameras path at this location
 
@@ -88,17 +92,25 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	{
 		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
 		const float3 el = g_LightCB.DirectionalLight.Intensity * g_LightCB.DirectionalLight.Color;
-		const float3 v = normalize(g_PassCB.WorldEyePos - p_ws);
 
 		const float phase = HGPhaseFunction(v, l, anisotropy);
 		const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
-
 		in_scattering += phase * visibility * el;
 	}
 
-	// Evaluate in-scattering from ambient light
-	{
 
+	// Iterate through point lights to evaluate in-scattering
+	for (uint i = 0; i < g_LightCB.PointLightCount; i++)
+	{
+		PointLightGPUData light = g_PointLights[i];
+
+		const float3 l = normalize(light.Position.xyz - p_ws);
+		const float3 el = light.Color * light.Intensity;
+		const float d = length(light.Position.xyz - p_ws);
+
+		const float phase = HGPhaseFunction(v, l, anisotropy);
+		const float atten = distanceAttenuation(d, light.Range);
+		in_scattering += phase * el * atten;
 	}
 
 	const float3 l_scat = in_scattering * scattering;

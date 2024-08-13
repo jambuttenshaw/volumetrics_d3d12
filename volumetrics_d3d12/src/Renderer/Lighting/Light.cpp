@@ -89,14 +89,14 @@ LightManager::LightManager()
 
 	for (auto& light : m_PointLightsStaging)
 	{
-		light.Position = { 0.0f, 1.5f, 0.0f };
+		light.Position = { 0.0f, 2.0f, 0.0f };
 		light.Color = { 1.0f, 1.0f, 1.0f };
 		light.Intensity = 0.0f;
-		light.Range = 5.0f;
+		light.Range = 3.0f;
 	}
 
 	// Set up shadow camera and shadow map
-	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(20.0f, 20.0f, 0.1f, 100.0f);
+	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(70.0f, 70.0f, 0.1f, 100.0f);
 
 	m_SunShadowMap.CreateShadowMap(1024, 1024);
 
@@ -140,8 +140,7 @@ void LightManager::UpdateLightingCB(const XMFLOAT3& eyePos)
 	up = XMVector3Cross(forward, right);
 
 	// subtract a distance from the eye position to get a position for the camera
-	constexpr float d = 10.0f;
-	//XMVECTOR position = XMLoadFloat3(&eyePos) - d * forward;
+	constexpr float d = 50.0f;
 	XMVECTOR position = - d * forward;
 
 	XMMATRIX view = XMMatrixLookAtLH(position, position + forward, up);
@@ -606,11 +605,16 @@ void LightManager::DrawGui()
 		ImGui::ColorEdit3("Color", &light.Color.x);
 		if (ImGui::DragFloat("Intensity", &light.Intensity, 0.01f))
 		{
-			light.Intensity = max(0, light.Intensity);
+			light.Intensity = max(0.0f, light.Intensity);
+		}
+		if (ImGui::DragFloat("Range", &light.Range, 0.01f))
+		{
+			light.Range = max(0.0f, light.Range);
 		}
 	}
 
-	if (ImGui::Begin("Shadow Map"))
+	static bool showShadowMap = true;
+	if (ImGui::Begin("Shadow Map", &showShadowMap))
 	{
 		ImGui::Image(reinterpret_cast<ImTextureID>(m_SunShadowMap.GetSRV().ptr), { 400.0f, 400.0f });
 

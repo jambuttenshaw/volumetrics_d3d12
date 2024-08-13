@@ -59,7 +59,7 @@ private:
 	XMUINT3 m_VolumeResolution = { 512, 288, 256 };
 	XMUINT3 m_DispatchGroups;
 
-	float m_MaxVolumeDistance = 50.0f;
+	float m_MaxVolumeDistance = 100.0f;
 
 	DXGI_FORMAT m_Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 

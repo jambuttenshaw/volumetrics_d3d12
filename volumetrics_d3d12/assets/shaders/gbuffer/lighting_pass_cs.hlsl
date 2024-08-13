@@ -126,10 +126,15 @@ void main(uint3 DTid : SV_DispatchThreadID)
 		const PointLightGPUData light = g_PointLights[i];
 		const float3 l = normalize(light.Position.xyz - worldPos.xyz);
 		const float3 el = light.Color * light.Intensity;
+		const float d = length(light.Position.xyz - worldPos.xyz);
 
 		// evaluate shading equation
 		const float3 brdf = ggx_brdf(v, l, normal, albedo, f0, roughnessMetallic.x, roughnessMetallic.y);
-		lo += brdf * el * saturate(dot(normal, l));
+
+		// evaluate distance attenuation
+		const float atten = distanceAttenuation(d, light.Range);
+
+		lo += brdf * el * saturate(dot(normal, l)) * atten;
 	}
 
 	// Calculate ambient lighting
@@ -147,7 +152,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 		g_BRDFIntegrationSampler
 	);
 
-	lo += ambient;
+	//lo += ambient;
 
 	const float3 color = lo;
 

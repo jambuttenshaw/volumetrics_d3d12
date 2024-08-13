@@ -84,4 +84,13 @@ float3 ggx_brdf(float3 v, float3 l, float3 n, float3 albedo, float3 f0, float ro
 	return fdiff + fspec;
 }
 
+
+// Attenuation
+float distanceAttenuation(float r, float rmax)
+{
+	const float a1 = r / max(rmax, 0.0001f);
+	const float a2 = max(0.0f, 1.0f - (a1 * a1));
+	return a2 * a2;
+}
+
 #endif

@@ -5,6 +5,7 @@
 #include "../../HlslCompat/StructureHlslCompat.h"
 
 #include "volumetrics.hlsli"
+#include "../../include/simplex_noise.hlsli"
 
 
 ConstantBuffer<PassConstantBuffer> g_PassCB : register(b0);
@@ -55,11 +56,26 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	// Get world-space pos
 	const float3 p_ws = ComputeWorldSpacePositionFromFroxelIndex(DTid);
 
+	// Compute a noise value from the world space position
+	/*
+	float noise = 0.0f;
+	float freq = 0.05f;
+	float amp = 0.005f;
+	for (uint octave = 0; octave < 4; octave++)
+	{
+		noise += amp * snoise(p_ws * freq + (0.1f * g_PassCB.TotalTime));
+		amp *= 0.5f;
+		freq *= 2.0f;
+	}
+	noise *= 0.5f;
+	extinction *= noise;
+	*/
+
 	// Confine fog to a small region
 	const float r = length(p_ws.xz);
 	extinction *= 1.0f - smoothstep(5.0f, 8.0f, r);
-	extinction *= smoothstep(0.0f, 0.1f, p_ws.y) * (1.0f - smoothstep(1.0f, 4.0f, p_ws.y));
-
+	extinction *= smoothstep(0.0f, 1.0f, p_ws.y) * (1.0f - smoothstep(3.0f, 4.0f, p_ws.y));
+	
 	float3 scattering = g_GlobalFogCB.Albedo * extinction;
 	g_VBufferA[DTid] = float4(scattering, extinction);
 	g_VBufferB[DTid] = float4(emission, anisotropy);
