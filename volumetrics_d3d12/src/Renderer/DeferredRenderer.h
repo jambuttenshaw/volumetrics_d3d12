@@ -69,6 +69,9 @@ private:
 	void RenderSkybox() const;
 	void LightingPass() const;
 
+	// Post processing
+	void Tonemapping() const;
+
 	// Submits Draw calls for all geometry in the scene
 	void DrawAllGeometry(ID3D12GraphicsCommandList* commandList, UINT objectCBParamIndex) const;
 
@@ -116,5 +119,7 @@ private:
 	D3DComputePipeline m_LightingPipeline;
 
 	D3DGraphicsPipeline m_SkyboxPipeline;
+
+	D3DComputePipeline m_TonemappingPipeline;
 
 };

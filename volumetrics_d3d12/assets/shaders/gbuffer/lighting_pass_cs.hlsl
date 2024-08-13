@@ -149,10 +149,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	lo += ambient;
 
-	// Tone mapping
-	float3 color = lo / (1.0f + lo);
-	// Gamma correction
-	color = pow(color, 0.4545f);
+	const float3 color = lo;
 
 	g_LitOutput[DTid.xy] = float4(color, 1.0f);
 

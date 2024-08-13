@@ -61,6 +61,16 @@ namespace LightingPassRootSignature
 	};
 }
 
+namespace TonemappingRootSignature
+{
+	enum Parameters
+	{
+		TonemappingParametersConstantBuffer = 0,
+		OutputResource,
+		Count
+	};
+}
+
 
 DeferredRenderer::DeferredRenderer()
 {
@@ -267,6 +277,27 @@ void DeferredRenderer::CreatePipelines()
 
 		m_LightingPipeline.Create(&psoDesc);
 	}
+
+	// Create tonemapping pipeline
+	{
+		D3DComputePipelineDesc psoDesc = {};
+
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+
+		// Set up root parameters
+		CD3DX12_ROOT_PARAMETER1 rootParameters[TonemappingRootSignature::Count];
+		rootParameters[TonemappingRootSignature::TonemappingParametersConstantBuffer].InitAsConstants(SizeOfInUint32(TonemappingParametersConstantBuffer), 0);
+		rootParameters[TonemappingRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[0]);
+
+		psoDesc.NumRootParameters = TonemappingRootSignature::Count;
+		psoDesc.RootParameters = rootParameters;
+
+		psoDesc.Shader = L"assets/shaders/compute/postprocess/tonemapping_cs.hlsl";
+		psoDesc.EntryPoint = L"main";
+
+		m_TonemappingPipeline.Create(&psoDesc);
+	}
 }
 
 void DeferredRenderer::CreateResolutionDependentResources()
@@ -472,6 +503,18 @@ void DeferredRenderer::Render() const
 			D3D12_RESOURCE_STATE_DEPTH_WRITE));
 		FlushBarriers();
 	}
+
+	// Perform post-processing on uav
+	{
+		PIXBeginEvent(commandList, PIX_COLOR_INDEX(9), "Post Processing");
+
+		Tonemapping();
+
+		PIXEndEvent(commandList);
+	}
+
+	barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(m_OutputResource.GetResource()));
+	FlushBarriers();
 }
 
 
@@ -602,6 +645,36 @@ void DeferredRenderer::LightingPass() const
 	// Dispatch lighting pass
 	const UINT clientWidth = g_D3DGraphicsContext->GetClientWidth();
 	const UINT clientHeight = g_D3DGraphicsContext->GetClientHeight();
+	// Uses 8 threads per group (fast ceiling of integer division)
+	const UINT threadGroupX = (clientWidth + 7) / 8;
+	const UINT threadGroupY = (clientHeight + 7) / 8;
+
+	commandList->Dispatch(threadGroupX, threadGroupY, 1);
+
+	PIXEndEvent(commandList);
+}
+
+
+void DeferredRenderer::Tonemapping() const
+{
+	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(8), "Tonemapping");
+
+	// Lighting pass
+	m_TonemappingPipeline.Bind(commandList);
+
+	const UINT clientWidth = g_D3DGraphicsContext->GetClientWidth();
+	const UINT clientHeight = g_D3DGraphicsContext->GetClientHeight();
+	const TonemappingParametersConstantBuffer cb
+	{
+		.OutputDimensions = { clientWidth, clientHeight }
+	};
+
+	// Set root arguments
+	commandList->SetComputeRoot32BitConstants(TonemappingRootSignature::TonemappingParametersConstantBuffer, SizeOfInUint32(cb), &cb, 0);
+	commandList->SetComputeRootDescriptorTable(TonemappingRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());
+
 	// Uses 8 threads per group (fast ceiling of integer division)
 	const UINT threadGroupX = (clientWidth + 7) / 8;
 	const UINT threadGroupY = (clientHeight + 7) / 8;

@@ -96,6 +96,11 @@ void main(uint3 DTid : SV_DispatchThreadID)
 		in_scattering += phase * visibility * el;
 	}
 
+	// Evaluate in-scattering from ambient light
+	{
+
+	}
+
 	const float3 l_scat = in_scattering * scattering;
 
 	g_LightScatteringVolume[DTid] = float4(l_scat, extinction);

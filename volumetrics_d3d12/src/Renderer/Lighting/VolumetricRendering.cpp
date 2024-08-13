@@ -426,4 +426,15 @@ void VolumetricRendering::DrawGui()
 	{
 		m_GlobalFogStagingBuffer.Extinction = max(0.0f, m_GlobalFogStagingBuffer.Extinction);
 	}
+
+	XMFLOAT3 emission = m_GlobalFogStagingBuffer.Emission;
+	if (ImGui::DragFloat3("Emission", &emission.x, 0.01f))
+	{
+		emission.x = max(0.0f, emission.x);
+		emission.y = max(0.0f, emission.y);
+		emission.z = max(0.0f, emission.z);
+		m_GlobalFogStagingBuffer.Emission = emission;
+	}
+
+	ImGui::SliderFloat("Anisotropy", &m_GlobalFogStagingBuffer.Anisotropy, 0.0f, 0.999f);
 }

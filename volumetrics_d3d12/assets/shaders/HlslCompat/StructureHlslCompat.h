@@ -113,6 +113,17 @@ struct GlobalFogConstantBuffer
 {
 	XMFLOAT3 Albedo;
 	float Extinction;
+
+	XMFLOAT3 Emission;
+	float Anisotropy;
+};
+
+
+// Post-processing
+
+struct TonemappingParametersConstantBuffer
+{
+	XMUINT2 OutputDimensions;
 };
 
 #endif
