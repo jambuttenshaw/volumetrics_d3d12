@@ -13,7 +13,9 @@ namespace DensityEstimationRootSignature
 {
 	enum Parameters
 	{
-		GlobalFogConstantBuffer = 0,
+		PassConstantBuffer = 0,
+		VolumeConstantBuffer,
+		GlobalFogConstantBuffer,
 		VBuffer,
 		Count
 	};
@@ -78,8 +80,8 @@ VolumetricRendering::VolumetricRendering(const LightManager& lightManager)
 	CreateResources();
 	CreatePipelines();
 
-	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(0.1f, 0.1f, 0.1f);
-	m_GlobalFogStagingBuffer.Extinction = 0.3f;
+	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(3.0f, 3.0f, 3.0f);
+	m_GlobalFogStagingBuffer.Extinction = 0.5f;
 }
 
 VolumetricRendering::~VolumetricRendering()
@@ -194,7 +196,9 @@ void VolumetricRendering::CreatePipelines()
 		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 2, 0);
 
 		CD3DX12_ROOT_PARAMETER1 rootParams[DensityEstimationRootSignature::Count];
-		rootParams[DensityEstimationRootSignature::GlobalFogConstantBuffer].InitAsConstantBufferView(0);
+		rootParams[DensityEstimationRootSignature::PassConstantBuffer].InitAsConstantBufferView(0);
+		rootParams[DensityEstimationRootSignature::VolumeConstantBuffer].InitAsConstantBufferView(1);
+		rootParams[DensityEstimationRootSignature::GlobalFogConstantBuffer].InitAsConstantBufferView(2);
 		rootParams[DensityEstimationRootSignature::VBuffer].InitAsDescriptorTable(1, &ranges[0]);
 
 		D3DComputePipelineDesc psoDesc = {
@@ -356,6 +360,8 @@ void VolumetricRendering::DensityEstimation() const
 
 	m_DensityEstimationPipeline.Bind(commandList);
 
+	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
+	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(0));
 	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::GlobalFogConstantBuffer, m_GlobalFogConstantBuffer.GetAddressOfElement(g_D3DGraphicsContext->GetCurrentBackBuffer()));
 	commandList->SetComputeRootDescriptorTable(DensityEstimationRootSignature::VBuffer, m_Descriptors.GetGPUHandle(UAV_VBufferA));
 
@@ -406,6 +412,18 @@ void VolumetricRendering::VolumeIntegration() const
 void VolumetricRendering::DrawGui()
 {
 	ImGui::Text("Global Fog");
-	ImGui::SliderFloat3("Albedo", &m_GlobalFogStagingBuffer.Albedo.x, 0.0f, 1.0f);
-	ImGui::SliderFloat("Extinction", &m_GlobalFogStagingBuffer.Extinction, 0.0f, 1.0f);
+
+	XMFLOAT3 albedo = m_GlobalFogStagingBuffer.Albedo;
+	if (ImGui::DragFloat3("Albedo", &albedo.x, 0.01f))
+	{
+		albedo.x = max(0.0f, albedo.x);
+		albedo.y = max(0.0f, albedo.y);
+		albedo.z = max(0.0f, albedo.z);
+		m_GlobalFogStagingBuffer.Albedo = albedo;
+	}
+
+	if (ImGui::DragFloat("Extinction", &m_GlobalFogStagingBuffer.Extinction, 0.01f))
+	{
+		m_GlobalFogStagingBuffer.Extinction = max(0.0f, m_GlobalFogStagingBuffer.Extinction);
+	}
 }

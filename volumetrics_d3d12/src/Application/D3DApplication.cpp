@@ -356,8 +356,18 @@ void D3DApplication::UpdatePassCB()
 	m_PassCB.RTSize = XMUINT2(m_Width, m_Height);
 	m_PassCB.InvRTSize = XMFLOAT2(1.0f / static_cast<float>(m_Width), 1.0f / static_cast<float>(m_Height));
 
-	m_PassCB.NearPlane = m_Camera.GetNearPlane();
-	m_PassCB.FarPlane = m_Camera.GetFarPlane();
+	const float n = m_Camera.GetNearPlane();
+	const float f = m_Camera.GetFarPlane();
+
+	m_PassCB.NearPlane = n;
+	m_PassCB.FarPlane = f;
+
+	// Coefficients required to transform view-space depth to NDC depth
+	// computed as NDCDepth = A - B / ViewDepth
+	m_PassCB.ViewDepthToNDC = {
+		/* A = */ f / (f - n),
+		/* B = */ f * n / (f - n)
+	};
 
 	m_PassCB.TotalTime = m_Timer.GetTimeSinceReset();
 	m_PassCB.DeltaTime = m_Timer.GetDeltaTime();

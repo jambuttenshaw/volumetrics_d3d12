@@ -41,8 +41,13 @@ struct PassConstantBuffer
 	float NearPlane;
 	float FarPlane;
 
+	// Coefficients required to transform depth from view-space depth to NDC
+	XMFLOAT2 ViewDepthToNDC;
+
 	float TotalTime;
 	float DeltaTime;
+
+	XMFLOAT2 Padding;
 };
 
 // Per-object data per frame

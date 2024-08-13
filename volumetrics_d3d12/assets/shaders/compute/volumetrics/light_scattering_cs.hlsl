@@ -36,6 +36,23 @@ SamplerComparisonState g_ShadowMapSampler : register(s0);
 RWTexture3D<float4> g_LightScatteringVolume : register(u0);
 
 
+float3 ComputeWorldSpacePositionFromFroxelIndex(uint3 froxel)
+{
+	const float depth = ZSliceToFroxelDepth(froxel.z, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
+
+	// Need to get the depth in NDC
+	const float depthNDC = g_PassCB.ViewDepthToNDC.x - g_PassCB.ViewDepthToNDC.y / depth;
+
+	// we want to calculate at the center of each froxel
+	const float2 sliceUV = (froxel.xy + float2(0.5f, 0.5f)) / (float2) (g_VolumeCB.VolumeResolution.xy);
+	float2 sliceNDC = (2.0f * sliceUV - 1.0f) * float2(1.0f, -1.0f);
+
+	float4 p_vs = mul(float4(sliceNDC, depthNDC, 1.0f), g_PassCB.InvProj);
+	p_vs /= p_vs.w;
+	return mul(p_vs, g_PassCB.InvView).xyz;
+}
+
+
 // Shadowing
 float GetVisibility(float3 worldPos)
 {
@@ -47,7 +64,6 @@ float GetVisibility(float3 worldPos)
 
 	return g_SunShadowMap.SampleCmpLevelZero(g_ShadowMapSampler, shadowMapUV, shadowPos.z);
 }
-
 
 
 [numthreads(8, 8, 8)]
@@ -64,19 +80,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	const float anisotropy = vbb.a;
 
 	// Get location of this froxel in world space
-	const float depth = ZSliceToFroxelDepth(DTid.z, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
-
-	// Need to get the depth in NDC
-	float4 depthNDC = mul(float4(0.0f, 0.0f, depth, 1.0f), g_PassCB.Proj);
-	depthNDC /= depthNDC.w;
-
-	// we want to calculate at the center of each froxel
-	float2 sliceUV = (DTid.xy + float2(0.5f, 0.5f)) / (float2) (g_VolumeCB.VolumeResolution.xy);
-	float2 sliceNDC = (2.0f * sliceUV - 1.0f) * float2(1.0f, -1.0f);
-
-	float4 p_vs = mul(float4(sliceNDC, depthNDC.z, 1.0f), g_PassCB.InvProj);
-	p_vs /= p_vs.w;
-	float4 p_ws = mul(p_vs, g_PassCB.InvView);
+	const float3 p_ws = ComputeWorldSpacePositionFromFroxelIndex(DTid);
 
 	float3 in_scattering = emission; // add emission to light scattered into the cameras path at this location
 
@@ -84,10 +88,10 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	{
 		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
 		const float3 el = g_LightCB.DirectionalLight.Intensity * g_LightCB.DirectionalLight.Color;
-		const float3 v = normalize(g_PassCB.WorldEyePos - p_ws.xyz);
+		const float3 v = normalize(g_PassCB.WorldEyePos - p_ws);
 
 		const float phase = HGPhaseFunction(v, l, anisotropy);
-		const float visibility = GetVisibility(p_ws.xyz); // Sample shadow map to get visibility
+		const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
 
 		in_scattering += phase * visibility * el;
 	}

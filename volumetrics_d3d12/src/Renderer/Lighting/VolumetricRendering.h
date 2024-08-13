@@ -56,7 +56,7 @@ private:
 	void VolumeIntegration() const;
 
 private:
-	XMUINT3 m_VolumeResolution = { 256, 144, 128 };
+	XMUINT3 m_VolumeResolution = { 512, 288, 256 };
 	XMUINT3 m_DispatchGroups;
 
 	float m_MaxVolumeDistance = 50.0f;
