@@ -116,6 +116,13 @@ struct GlobalFogConstantBuffer
 
 	XMFLOAT3 Emission;
 	float Anisotropy;
+
+	// Fog geometry
+	float MaxHeight;
+	float HeightSmoothing;
+
+	float Radius;
+	float RadiusSmoothing;
 };
 
 

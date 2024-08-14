@@ -7,6 +7,7 @@
 #include "backends/imgui_impl_dx12.h"
 #include <imgui_internal.h>
 
+#include "Renderer/Lighting/IBL.h"
 #include "Renderer/Profiling/GPUProfiler.h"
 
 #include <args.hxx>
@@ -154,7 +155,7 @@ void D3DApplication::OnInit()
 
 		auto environmentMap = m_TextureLoader->LoadTextureCubeFromFile("assets/textures/environment.png", &config);
 		m_TextureLoader->PerformUploadsImmediatelyAndBlock();
-		m_LightManager->ProcessEnvironmentMap(std::move(environmentMap));
+		m_LightManager->GetIBL()->ProcessEnvironmentMap(std::move(environmentMap));
 	}
 
 	LOG_INFO("Application startup complete.");

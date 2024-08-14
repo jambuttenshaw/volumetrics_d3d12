@@ -1,13 +1,11 @@
 #include "pch.h"
-#include "Light.h"
-
+#include "IBL.h"
 
 #include "Renderer/D3DGraphicsContext.h"
-#include "HlslCompat/LightingHlslCompat.h"
-#include "Framework/Math.h"
 
-#include <pix3.h>
-#include "imgui.h"
+#include "HlslCompat/LightingHlslCompat.h"
+
+#include "pix.h"
 
 
 // Pipeline root signatures
@@ -71,35 +69,8 @@ XMFLOAT3 g_CubemapFaceBitangents[6] = {
 };
 
 
-void CartesianDirectionToSpherical(const XMFLOAT3& direction, float& phi, float& theta)
+IBL::IBL()
 {
-	theta = acosf(direction.y);
-	phi = Math::Sign(direction.z) * acosf(direction.x / sqrtf(direction.x * direction.x + direction.z * direction.z));
-}
-
-
-LightManager::LightManager()
-{
-	// Populate default light properties
-	m_LightingCBStaging.DirectionalLight.Direction = { 0.0f, -0.7f, 0.7f };
-	m_LightingCBStaging.DirectionalLight.Intensity = 2.0f;
-	m_LightingCBStaging.DirectionalLight.Color = { 1.0f, 1.0f, 1.0f };
-
-	m_LightingCBStaging.PointLightCount = s_MaxLights;
-
-	for (auto& light : m_PointLightsStaging)
-	{
-		light.Position = { 0.0f, 2.0f, 0.0f };
-		light.Color = { 1.0f, 1.0f, 1.0f };
-		light.Intensity = 0.0f;
-		light.Range = 3.0f;
-	}
-
-	// Set up shadow camera and shadow map
-	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(70.0f, 70.0f, 0.1f, 100.0f);
-
-	m_SunShadowMap.CreateShadowMap(1024, 1024);
-
 	// Create API resources
 	THROW_IF_FAIL(g_D3DGraphicsContext->GetDevice()->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&m_CommandAllocator)));
 	THROW_IF_FAIL(g_D3DGraphicsContext->GetDevice()->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_COMPUTE, m_CommandAllocator.Get(), nullptr, IID_PPV_ARGS(&m_CommandList)));
@@ -113,63 +84,17 @@ LightManager::LightManager()
 
 	CreatePipelines();
 	CreateResources();
-
-	// Create light buffers
-	m_LightingResources.resize(D3DGraphicsContext::GetBackBufferCount());
-	for (auto& resources : m_LightingResources)
-	{
-		resources.LightingCB.Allocate(g_D3DGraphicsContext->GetDevice(), 1, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Lighting Constant Buffer");
-		resources.PointLights.Allocate(g_D3DGraphicsContext->GetDevice(), s_MaxLights, 0, L"Point Light Buffer");
-	}
-
 }
 
-LightManager::~LightManager()
+IBL::~IBL()
 {
 	m_GlobalLightingSRVs.Free();
 	m_SamplerDescriptors.Free();
 }
 
-void LightManager::UpdateLightingCB(const XMFLOAT3& eyePos)
-{
-	// Create a view matrix for the directional light
-	XMVECTOR forward = XMVector3Normalize(XMLoadFloat3(&m_LightingCBStaging.DirectionalLight.Direction));
-	XMVECTOR up = { 0.0f, 1.0f, 0.0f };
-
-	XMVECTOR right = XMVector3Normalize(XMVector3Cross(up, forward));
-	up = XMVector3Cross(forward, right);
-
-	// subtract a distance from the eye position to get a position for the camera
-	constexpr float d = 50.0f;
-	XMVECTOR position = - d * forward;
-
-	XMMATRIX view = XMMatrixLookAtLH(position, position + forward, up);
-
-	// Now update the CB with the new camera matrix
-	const XMMATRIX viewProj = XMMatrixMultiply(view, m_ShadowCameraProjectionMatrix);
-	m_LightingCBStaging.DirectionalLight.ViewProjection = XMMatrixTranspose(viewProj);
-}
-
-void LightManager::CopyStagingBuffers() const
-{
-	const auto& resources = m_LightingResources.at(g_D3DGraphicsContext->GetCurrentBackBuffer());
-
-	resources.LightingCB.CopyElement(0, m_LightingCBStaging);
-	resources.PointLights.CopyElements(0, static_cast<UINT>(m_PointLightsStaging.size()), m_PointLightsStaging.data());
-}
-
-D3D12_GPU_VIRTUAL_ADDRESS LightManager::GetLightingConstantBuffer() const
-{
-	return m_LightingResources.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).LightingCB.GetAddressOfElement(0);
-}
-
-D3D12_GPU_VIRTUAL_ADDRESS LightManager::GetPointLightBuffer() const
-{
-	return m_LightingResources.at(g_D3DGraphicsContext->GetCurrentBackBuffer()).PointLights.GetAddressOfElement(0);
-}
 
 
-void LightManager::CreatePipelines()
+void IBL::CreatePipelines()
 {
 	{
 		using namespace IrradianceMapPipelineSignature;
@@ -191,7 +116,7 @@ void LightManager::CreatePipelines()
 		desc.Shader = L"assets/shaders/compute/environment/irradiance.hlsl";
 		desc.EntryPoint = L"main";
 
-		m_Pipelines[GlobalLightingPipeline::IrradianceMap] = std::make_unique<D3DComputePipeline>(&desc);
+		m_Pipelines[IBL_Pipeline_IrradianceMap].Create(&desc);
 	}
 
 	{
@@ -209,7 +134,7 @@ void LightManager::CreatePipelines()
 		desc.Shader = L"assets/shaders/compute/environment/brdf_integration.hlsl";
 		desc.EntryPoint = L"main";
 
-		m_Pipelines[GlobalLightingPipeline::BRDFIntegration] = std::make_unique<D3DComputePipeline>(&desc);
+		m_Pipelines[IBL_Pipeline_BRDFIntegration].Create(&desc);
 	}
 
 	{
@@ -232,20 +157,20 @@ void LightManager::CreatePipelines()
 		desc.Shader = L"assets/shaders/compute/environment/prefiltered_environment.hlsl";
 		desc.EntryPoint = L"main";
 
-		m_Pipelines[GlobalLightingPipeline::PreFilteredEnvironmentMap] = std::make_unique<D3DComputePipeline>(&desc);
+		m_Pipelines[IBL_Pipeline_PreFilteredEnvironmentMap].Create(&desc);
 	}
 }
 
-void LightManager::CreateResources()
+void IBL::CreateResources()
 {
 	const auto device = g_D3DGraphicsContext->GetDevice();
 
 	{
 		// Create irradiance map
 		D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(
-			DXGI_FORMAT_R8G8B8A8_UNORM, 
-			m_IrradianceMapResolution, 
-			m_IrradianceMapResolution, 
+			DXGI_FORMAT_R8G8B8A8_UNORM,
+			m_IrradianceMapResolution,
+			m_IrradianceMapResolution,
 			6,
 			1);
 		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
@@ -334,22 +259,11 @@ void LightManager::CreateResources()
 		samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
 
 		device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetCPUHandle(BRDFIntegrationMapSampler));
-
-
-		// Shadow map sampler
-		samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
-		samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-
-		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS;
-
-		device->CreateSampler(&samplerDesc, m_SamplerDescriptors.GetCPUHandle(ShadowMapSampler));
 	}
 }
 
 
-void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
+void IBL::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 {
 	const auto device = g_D3DGraphicsContext->GetDevice();
 
@@ -396,7 +310,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 		for (UINT face = 0; face < 6; face++)
 		{
 			uavDesc.Texture2DArray.FirstArraySlice = face;
-			device->CreateUnorderedAccessView(m_IrradianceMap->GetResource(), nullptr, &uavDesc,	irradianceMapFaceUAVs.GetCPUHandle(face));
+			device->CreateUnorderedAccessView(m_IrradianceMap->GetResource(), nullptr, &uavDesc, irradianceMapFaceUAVs.GetCPUHandle(face));
 		}
 	}
 
@@ -440,7 +354,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 	THROW_IF_FAIL(m_CommandAllocator->Reset());
 	THROW_IF_FAIL(m_CommandList->Reset(m_CommandAllocator.Get(), nullptr));
 
-	
+
 	PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(56), L"Environment processing");
 
 
@@ -462,7 +376,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 			PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(57), L"Irradiance Map");
 
 			// Irradiance map
-			m_Pipelines[GlobalLightingPipeline::IrradianceMap]->Bind(m_CommandList.Get());
+			m_Pipelines[IBL_Pipeline_IrradianceMap].Bind(m_CommandList.Get());
 
 			const UINT threadGroupX = (m_IrradianceMapResolution + IRRADIANCE_THREADS - 1) / IRRADIANCE_THREADS;
 			const UINT threadGroupY = (m_IrradianceMapResolution + IRRADIANCE_THREADS - 1) / IRRADIANCE_THREADS;
@@ -486,7 +400,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 			PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(58), L"BRDF Integration");
 
 			// BRDF integration map
-			m_Pipelines[GlobalLightingPipeline::BRDFIntegration]->Bind(m_CommandList.Get());
+			m_Pipelines[IBL_Pipeline_BRDFIntegration].Bind(m_CommandList.Get());
 
 			const UINT threadGroupX = (m_BRDFIntegrationMapResolution + BRDF_INTEGRATION_THREADS - 1) / BRDF_INTEGRATION_THREADS;
 			const UINT threadGroupY = (m_BRDFIntegrationMapResolution + BRDF_INTEGRATION_THREADS - 1) / BRDF_INTEGRATION_THREADS;
@@ -502,7 +416,7 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 			PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(59), L"Pre-Filtered Environment Map");
 
 			// Prefiltered environment map
-			m_Pipelines[GlobalLightingPipeline::PreFilteredEnvironmentMap]->Bind(m_CommandList.Get());
+			m_Pipelines[IBL_Pipeline_PreFilteredEnvironmentMap].Bind(m_CommandList.Get());
 
 			m_CommandList->SetComputeRootDescriptorTable(PEMPipelineSignature::EnvironmentMapSlot, m_GlobalLightingSRVs.GetGPUHandle(EnvironmentMapSRV));
 			m_CommandList->SetComputeRootDescriptorTable(PEMPipelineSignature::EnvironmentSamplerSlot, m_SamplerDescriptors.GetGPUHandle(EnvironmentMapSampler));
@@ -557,67 +471,4 @@ void LightManager::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 	irradianceMapFaceUAVs.Free();
 	BRDFIntegrationMapUAV.Free();
 	PEMFaceUAVs.Free();
-}
-
-
-void LightManager::DrawGui()
-{
-
-	// Directional Light
-	{
-		ImGui::Text("Directional Light");
-
-		auto& directionalLight = m_LightingCBStaging.DirectionalLight;
-
-		// Direction should be edited in spherical coordinates
-		bool newDir = false;
-		float phi, theta;
-		CartesianDirectionToSpherical(directionalLight.Direction, phi, theta);
-
-		newDir |= ImGui::SliderAngle("Theta", &theta, 1.0f, 179.0f);
-		newDir |= ImGui::SliderAngle("Phi", &phi, -179.0f, 180.0f);
-		if (newDir)
-		{
-			const float sinTheta = sinf(theta);
-			const float cosTheta = cosf(theta);
-			const float sinPhi = sinf(phi);
-			const float cosPhi = cosf(phi);
-
-			directionalLight.Direction.x = sinTheta * cosPhi;
-			directionalLight.Direction.y = cosTheta;
-			directionalLight.Direction.z = sinTheta * sinPhi;
-		}
-
-		ImGui::ColorEdit3("Sun Color", &directionalLight.Color.x);
-		if (ImGui::DragFloat("Sun Intensity", &directionalLight.Intensity, 0.01f))
-		{
-			directionalLight.Intensity = max(0, directionalLight.Intensity);
-		}
-	}
-
-	for (size_t i = 0; i < m_PointLightsStaging.size(); i++)
-	{
-		auto& light = m_PointLightsStaging.at(i);
-
-		ImGui::Text("Light %d", i);
-
-		ImGui::DragFloat3("Position", &light.Position.x, 0.01f);
-		ImGui::ColorEdit3("Color", &light.Color.x);
-		if (ImGui::DragFloat("Intensity", &light.Intensity, 0.01f))
-		{
-			light.Intensity = max(0.0f, light.Intensity);
-		}
-		if (ImGui::DragFloat("Range", &light.Range, 0.01f))
-		{
-			light.Range = max(0.0f, light.Range);
-		}
-	}
-
-	static bool showShadowMap = true;
-	if (ImGui::Begin("Shadow Map", &showShadowMap))
-	{
-		ImGui::Image(reinterpret_cast<ImTextureID>(m_SunShadowMap.GetSRV().ptr), { 400.0f, 400.0f });
-
-		ImGui::End();
-	}
 }

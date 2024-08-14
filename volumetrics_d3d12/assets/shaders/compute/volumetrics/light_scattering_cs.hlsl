@@ -39,15 +39,15 @@ SamplerComparisonState g_ShadowMapSampler : register(s0);
 RWTexture3D<float4> g_LightScatteringVolume : register(u0);
 
 
-float3 ComputeWorldSpacePositionFromFroxelIndex(uint3 froxel)
+float3 ComputeWorldSpacePositionFromFroxelIndex(uint3 froxel, float3 cellOffset)
 {
-	const float depth = ZSliceToFroxelDepth(froxel.z, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
+	const float depth = ZSliceToFroxelDepth(froxel.z + cellOffset.z, g_PassCB.NearPlane, g_VolumeCB.MaxVolumeDistance, g_VolumeCB.VolumeResolution.z);
 
 	// Need to get the depth in NDC
 	const float depthNDC = g_PassCB.ViewDepthToNDC.x - g_PassCB.ViewDepthToNDC.y / depth;
 
 	// we want to calculate at the center of each froxel
-	const float2 sliceUV = (froxel.xy + float2(0.5f, 0.5f)) / (float2) (g_VolumeCB.VolumeResolution.xy);
+	const float2 sliceUV = (froxel.xy + cellOffset.xy) / (float2) (g_VolumeCB.VolumeResolution.xy);
 	float2 sliceNDC = (2.0f * sliceUV - 1.0f) * float2(1.0f, -1.0f);
 
 	float4 p_vs = mul(float4(sliceNDC, depthNDC, 1.0f), g_PassCB.InvProj);
@@ -83,7 +83,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	const float anisotropy = vbb.a;
 
 	// Get location of this froxel in world space
-	const float3 p_ws = ComputeWorldSpacePositionFromFroxelIndex(DTid);
+	const float3 p_ws = ComputeWorldSpacePositionFromFroxelIndex(DTid, float3(0.5f, 0.5f, 0.5f));
 	const float3 v = normalize(p_ws - g_PassCB.WorldEyePos);
 
 	float3 in_scattering = emission; // add emission to light scattered into the cameras path at this location

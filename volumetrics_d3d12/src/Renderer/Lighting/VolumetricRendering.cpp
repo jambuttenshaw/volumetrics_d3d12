@@ -5,7 +5,8 @@
 
 #include "imgui.h"
 
-#include "Light.h"
+#include "LightManager.h"
+#include "IBL.h"
 #include "Renderer/D3DGraphicsContext.h"
 
 
@@ -83,6 +84,11 @@ VolumetricRendering::VolumetricRendering(const LightManager& lightManager)
 
 	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(1.5f, 1.5f, 1.5f);
 	m_GlobalFogStagingBuffer.Extinction = 0.25f;
+
+	m_GlobalFogStagingBuffer.MaxHeight = 5.0f;
+	m_GlobalFogStagingBuffer.HeightSmoothing = 3.0f;
+	m_GlobalFogStagingBuffer.Radius = 5.0f;
+	m_GlobalFogStagingBuffer.RadiusSmoothing = 3.0f;
 }
 
 VolumetricRendering::~VolumetricRendering()
@@ -440,4 +446,7 @@ void VolumetricRendering::DrawGui()
 	}
 
 	ImGui::SliderFloat("Anisotropy", &m_GlobalFogStagingBuffer.Anisotropy, -0.99f, 0.99f);
+
+	ImGui::DragFloat("Fog Height", &m_GlobalFogStagingBuffer.MaxHeight, 0.01f);
+	ImGui::DragFloat("Fog Radius", &m_GlobalFogStagingBuffer.Radius, 0.01f);
 }

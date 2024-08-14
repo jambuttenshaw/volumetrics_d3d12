@@ -5,10 +5,12 @@
 
 #include "Application/Scene.h"
 
-#include "Lighting/Light.h"
+#include "Lighting/LightManager.h"
+#include "Lighting/IBL.h"
 #include "Lighting/Material.h"
 
 #include "pix3.h"
+#include "Lighting/ShadowMap.h"
 
 
 // Root signatures
@@ -56,6 +58,7 @@ namespace LightingPassRootSignature
 		EnvironmentMaps,		// Environment maps are sequential
 		EnvironmentSamplers,	// Environment samplers are sequential
 		SunShadowMap,			// Shadow map for the sun
+		ShadowMapSampler,
 		OutputResource,
 		Count
 	};
@@ -249,13 +252,15 @@ void DeferredRenderer::CreatePipelines()
 		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 1);
 
 		// Environment samplers
-		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 3, 0, 0);
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0, 0);
 
 		// Shadow map
 		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2);
 
+		ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 2, 0);
+
 		// Output UAV
-		ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+		ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
 
 
 		// Set up root parameters
@@ -267,7 +272,8 @@ void DeferredRenderer::CreatePipelines()
 		rootParameters[LightingPassRootSignature::EnvironmentMaps].InitAsDescriptorTable(1, &ranges[1]);
 		rootParameters[LightingPassRootSignature::EnvironmentSamplers].InitAsDescriptorTable(1, &ranges[2]);
 		rootParameters[LightingPassRootSignature::SunShadowMap].InitAsDescriptorTable(1, &ranges[3]);
-		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[4]);
+		rootParameters[LightingPassRootSignature::ShadowMapSampler].InitAsDescriptorTable(1, &ranges[4]);
+		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[5]);
 
 		psoDesc.NumRootParameters = LightingPassRootSignature::Count;
 		psoDesc.RootParameters = rootParameters;
@@ -594,6 +600,7 @@ void DeferredRenderer::GeometryPass() const
 void DeferredRenderer::RenderSkybox() const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+	const auto ibl = m_LightManager->GetIBL();
 
 	PIXBeginEvent(commandList, PIX_COLOR_INDEX(4), "Render Skybox");
 
@@ -609,8 +616,8 @@ void DeferredRenderer::RenderSkybox() const
 	constexpr FullscreenQuadProperties quadProperties{ 1.0f };
 	commandList->SetGraphicsRoot32BitConstants(SkyboxPassRootSignature::QuadProperties, SizeOfInUint32(quadProperties), &quadProperties, 0);
 
-	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMap, m_LightManager->GetEnvironmentMapSRV());
-	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMapSampler, m_LightManager->GetSamplerTable());
+	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMap, ibl->GetEnvironmentMapSRV());
+	commandList->SetGraphicsRootDescriptorTable(SkyboxPassRootSignature::EnvironmentMapSampler, ibl->GetSamplerTable());
 
 	// Triangle-strip for full-screen quad
 	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
@@ -626,6 +633,7 @@ void DeferredRenderer::RenderSkybox() const
 void DeferredRenderer::LightingPass() const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+	const auto ibl = m_LightManager->GetIBL();
 
 	PIXBeginEvent(commandList, PIX_COLOR_INDEX(3), "Lighting Pass");
 
@@ -637,9 +645,10 @@ void DeferredRenderer::LightingPass() const
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::GBuffer, m_SRVs.GetGPUHandle());
 	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::LightingConstantBuffer, m_LightManager->GetLightingConstantBuffer());
 	commandList->SetComputeRootShaderResourceView(LightingPassRootSignature::PointLightBuffer, m_LightManager->GetPointLightBuffer());
-	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, m_LightManager->GetSRVTable());
-	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentSamplers, m_LightManager->GetSamplerTable());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, ibl->GetSRVTable());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentSamplers, ibl->GetSamplerTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::SunShadowMap, m_LightManager->GetSunShadowMap().GetSRV());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::ShadowMapSampler, m_LightManager->GetShadowSampler());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());
 
 	// Dispatch lighting pass

@@ -446,7 +446,8 @@
     <ClCompile Include="src\Renderer\DeferredRenderer.cpp" />
     <ClCompile Include="src\Renderer\Geometry\Geometry.cpp" />
     <ClCompile Include="src\Renderer\Geometry\GeometryInstance.cpp" />
-    <ClCompile Include="src\Renderer\Lighting\Light.cpp" />
+    <ClCompile Include="src\Renderer\Lighting\IBL.cpp" />
+    <ClCompile Include="src\Renderer\Lighting\LightManager.cpp" />
     <ClCompile Include="src\Renderer\Lighting\Material.cpp" />
     <ClCompile Include="src\Renderer\Lighting\ShadowMap.cpp" />
     <ClCompile Include="src\Renderer\Lighting\VolumetricRendering.cpp" />
@@ -551,7 +552,8 @@
     <ClInclude Include="src\Renderer\Geometry\GeometryInstance.h" />
     <ClInclude Include="src\Renderer\Hlsl\HlslDefines.h" />
     <ClInclude Include="src\Renderer\Hlsl\StructureHlslCompat.h" />
-    <ClInclude Include="src\Renderer\Lighting\Light.h" />
+    <ClInclude Include="src\Renderer\Lighting\IBL.h" />
+    <ClInclude Include="src\Renderer\Lighting\LightManager.h" />
     <ClInclude Include="src\Renderer\Lighting\Material.h" />
     <ClInclude Include="src\Renderer\Lighting\ShadowMap.h" />
     <ClInclude Include="src\Renderer\Lighting\VolumetricRendering.h" />

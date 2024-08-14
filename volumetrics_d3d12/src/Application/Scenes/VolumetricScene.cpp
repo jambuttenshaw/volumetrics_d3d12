@@ -30,6 +30,12 @@ VolumetricScene::VolumetricScene(D3DApplication* application, UINT maxGeometryIn
 		CreateNewInstance(m_CubeGeometryHandle, cubeTransform);
 	}
 
+	{
+		Transform cubeTransform{ { -1.5f, 6.0f, 0.0f } };
+		cubeTransform.SetScale(XMFLOAT3{ 2.0f, 0.1f, 4.0f });
+
+		CreateNewInstance(m_CubeGeometryHandle, cubeTransform);
+	}
 }
 
 void VolumetricScene::OnUpdate(float deltaTime)

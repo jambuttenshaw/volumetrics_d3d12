@@ -1,32 +1,21 @@
 #pragma once
 
 #include "Core.h"
-#include "ShadowMap.h"
-#include "Framework/Camera/Camera.h"
-#include "HlslCompat/StructureHlslCompat.h"
-
 #include "Renderer/D3DPipeline.h"
-
 #include "Renderer/Buffer/Texture.h"
-#include "Renderer/Buffer/UploadBuffer.h"
 #include "Renderer/Memory/MemoryAllocator.h"
 
-using namespace DirectX;
 
-
-namespace GlobalLightingPipeline
+class IBL
 {
-	enum Value
+	enum IBLPipelines
 	{
-		IrradianceMap = 0,
-		BRDFIntegration,
-		PreFilteredEnvironmentMap,
-		Count
+		IBL_Pipeline_IrradianceMap = 0,
+		IBL_Pipeline_BRDFIntegration,
+		IBL_Pipeline_PreFilteredEnvironmentMap,
+		IBL_Pipeline_Count
 	};
-}
 
-class LightManager
-{
 	// This only contains SRVs so that all global lighting descriptors can be contained within one table
 	enum GlobalLightingSRV
 	{
@@ -36,40 +25,24 @@ class LightManager
 		PreFilteredEnvironmentMapSRV,
 		SRVCount
 	};
+
 	enum Samplers
 	{
 		EnvironmentMapSampler = 0,
 		BRDFIntegrationMapSampler,
-		ShadowMapSampler,
 		SamplerCount
 	};
 
 public:
-	LightManager();
-	~LightManager();
+	IBL();
+	~IBL();
 
-	DISALLOW_COPY(LightManager);
-	DEFAULT_MOVE(LightManager);
-
-	void UpdateLightingCB(const XMFLOAT3& eyePos);
-
-	const ShadowMap& GetSunShadowMap() const { return m_SunShadowMap; }
-	D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSampler() const { return m_SamplerDescriptors.GetGPUHandle(ShadowMapSampler); }
-
-	// Call each frame to move the latest lighting data to the GPU
-	void CopyStagingBuffers() const;
-
-	D3D12_GPU_VIRTUAL_ADDRESS GetLightingConstantBuffer() const;
-	D3D12_GPU_VIRTUAL_ADDRESS GetPointLightBuffer() const;
-
-	inline UINT GetLightCount() const { return s_MaxLights; }
-
+	DISALLOW_COPY(IBL)
+	DEFAULT_MOVE(IBL)
 
 	void ProcessEnvironmentMap(std::unique_ptr<Texture>&& map);
 
-	void DrawGui();
 
-public:
 	// Get resources
 	inline Texture* GetEnvironmentMap() const { return m_EnvironmentMap.get(); }
 	inline D3D12_GPU_DESCRIPTOR_HANDLE GetEnvironmentMapSRV() const { return m_GlobalLightingSRVs.GetGPUHandle(EnvironmentMapSRV); }
@@ -78,28 +51,12 @@ public:
 	inline D3D12_GPU_DESCRIPTOR_HANDLE GetSRVTable() const { return m_GlobalLightingSRVs.GetGPUHandle(IrradianceMapSRV); }
 	inline D3D12_GPU_DESCRIPTOR_HANDLE GetSamplerTable() const { return m_SamplerDescriptors.GetGPUHandle(); }
 
+
 private:
 	void CreatePipelines();
 	void CreateResources();
 
 private:
-	inline static constexpr size_t s_MaxLights = 1;
-
-	LightingConstantBuffer m_LightingCBStaging;
-	std::array<PointLightGPUData, s_MaxLights> m_PointLightsStaging;
-
-	XMMATRIX m_ShadowCameraProjectionMatrix;
-	ShadowMap m_SunShadowMap;	// Shadow map for the directional light
-
-	// Light GPU Resources
-	// This is a buffered resource so that light data can be modified between frames
-	struct LightingGPUResourcesPerFrame
-	{
-		UploadBuffer<LightingConstantBuffer> LightingCB;
-		UploadBuffer<PointLightGPUData> PointLights;
-	};
-	std::vector<LightingGPUResourcesPerFrame> m_LightingResources;
-
 	// Environmental lighting resources
 	std::unique_ptr<Texture> m_EnvironmentMap;
 
@@ -122,7 +79,7 @@ private:
 	// As this is not an operation that occurs often it will just block the render queue to process the environment map
 	ComPtr<ID3D12CommandAllocator> m_CommandAllocator;
 	ComPtr<ID3D12GraphicsCommandList> m_CommandList;
-	std::array<std::unique_ptr<D3DComputePipeline>, GlobalLightingPipeline::Count> m_Pipelines;
+	std::array<D3DComputePipeline, IBL_Pipeline_Count> m_Pipelines;
 
 	UINT64 m_PreviousWorkFence = 0;
 };

@@ -73,8 +73,8 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	// Confine fog to a small region
 	const float r = length(p_ws.xz);
-	extinction *= 1.0f - smoothstep(5.0f, 8.0f, r);
-	extinction *= smoothstep(0.0f, 1.0f, p_ws.y) * (1.0f - smoothstep(3.0f, 4.0f, p_ws.y));
+	extinction *= 1.0f - smoothstep(g_GlobalFogCB.Radius, g_GlobalFogCB.Radius + g_GlobalFogCB.RadiusSmoothing, r);
+	extinction *= smoothstep(0.0f, 1.0f, p_ws.y) * (1.0f - smoothstep(g_GlobalFogCB.MaxHeight, g_GlobalFogCB.MaxHeight + g_GlobalFogCB.HeightSmoothing, p_ws.y));
 	
 	float3 scattering = g_GlobalFogCB.Albedo * extinction;
 	g_VBufferA[DTid] = float4(scattering, extinction);

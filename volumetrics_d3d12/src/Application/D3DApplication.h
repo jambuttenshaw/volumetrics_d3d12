@@ -5,7 +5,7 @@
 
 #include "Renderer/D3DGraphicsContext.h"
 #include "Renderer/Buffer/TextureLoader.h"
-#include "Renderer/Lighting/Light.h"
+#include "Renderer/Lighting/LightManager.h"
 #include "Renderer/Lighting/Material.h"
 
 #include "Framework/GameTimer.h"
