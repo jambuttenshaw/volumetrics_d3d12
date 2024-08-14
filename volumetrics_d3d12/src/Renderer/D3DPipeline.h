@@ -41,6 +41,8 @@ struct D3DComputePipelineDesc
 	const wchar_t* Shader = nullptr;
 	const wchar_t* EntryPoint = nullptr;
 
+	std::vector<D3D12_STATIC_SAMPLER_DESC> StaticSamplers;
+
 	std::vector<std::wstring> Defines;
 };
 

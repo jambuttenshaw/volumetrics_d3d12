@@ -104,7 +104,8 @@ void D3DComputePipeline::Create(D3DComputePipelineDesc* desc)
 	// Create the compute root signature
 	{
 		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		rootSignatureDesc.Init_1_1(desc->NumRootParameters, desc->RootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+		const UINT numStaticSamplers = static_cast<UINT>(desc->StaticSamplers.size());
+		rootSignatureDesc.Init_1_1(desc->NumRootParameters, desc->RootParameters, numStaticSamplers, numStaticSamplers > 0 ? desc->StaticSamplers.data() : nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
 
 		ComPtr<ID3DBlob> signature;
 		THROW_IF_FAIL(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, nullptr));

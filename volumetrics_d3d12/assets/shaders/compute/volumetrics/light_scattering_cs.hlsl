@@ -30,10 +30,10 @@ Texture3D<float4> g_VBufferB : register(t1);
 
 // Scene Lighting resources
 StructuredBuffer<PointLightGPUData> g_PointLights : register(t2);
-Texture2D<float> g_SunShadowMap : register(t3);
+Texture2D<float> g_SunESM : register(t3);
 
 
-SamplerComparisonState g_ShadowMapSampler : register(s0);
+SamplerState g_ESMSampler : register(s0);
 
 
 RWTexture3D<float4> g_LightScatteringVolume : register(u0);
@@ -65,7 +65,9 @@ float GetVisibility(float3 worldPos)
 	float2 shadowMapUV = shadowPos.xy * 0.5f + 0.5f;
 	shadowMapUV.y = 1.0f - shadowMapUV.y;
 
-	return g_SunShadowMap.SampleCmpLevelZero(g_ShadowMapSampler, shadowMapUV, shadowPos.z);
+	const float receiver = exp(shadowPos.z * ESM_EXPONENT);
+	const float occluder = g_SunESM.SampleLevel(g_ESMSampler, shadowMapUV, 0);
+	return 1.0f - saturate(receiver / occluder);
 }
 
 

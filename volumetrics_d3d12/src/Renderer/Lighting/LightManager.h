@@ -3,9 +3,11 @@
 #include "Core.h"
 #include "ShadowMap.h"
 #include "HlslCompat/StructureHlslCompat.h"
+#include "Renderer/D3DPipeline.h"
 
 #include "Renderer/Buffer/UploadBuffer.h"
 #include "Renderer/Memory/MemoryAllocator.h"
+#include "ExponentialShadowMap.h"
 
 class IBL;
 
@@ -14,6 +16,14 @@ using namespace DirectX;
 
 class LightManager
 {
+public:
+	enum ShadowSampler
+	{
+		ShadowSampler_Comparison = 0,
+		ShadowSampler_ESM,
+		ShadowSampler_Count
+	};
+
 public:
 	LightManager();
 	~LightManager();
@@ -24,7 +34,9 @@ public:
 	void UpdateLightingCB(const XMFLOAT3& eyePos);
 
 	const ShadowMap& GetSunShadowMap() const { return m_SunShadowMap; }
-	D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSampler() const { return m_ShadowSampler.GetGPUHandle(); }
+	const ExponentialShadowMap& GetSunESM() const { return m_SunESM; }
+
+	D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSampler(ShadowSampler sampler) const { return m_ShadowSamplers.GetGPUHandle(sampler); }
 
 	// Call each frame to move the latest lighting data to the GPU
 	void CopyStagingBuffers() const;
@@ -36,8 +48,8 @@ public:
 
 	IBL* GetIBL() const { return m_IBL.get(); }
 
-
 	void DrawGui();
+
 
 private:
 	inline static constexpr size_t s_MaxLights = 1;
@@ -47,6 +59,7 @@ private:
 
 	XMMATRIX m_ShadowCameraProjectionMatrix;
 	ShadowMap m_SunShadowMap;	// Shadow map for the directional light
+	ExponentialShadowMap m_SunESM;
 
 	// Light GPU Resources
 	// This is a buffered resource so that light data can be modified between frames
@@ -57,7 +70,7 @@ private:
 	};
 	std::vector<LightingGPUResourcesPerFrame> m_LightingResources;
 
-	DescriptorAllocation m_ShadowSampler;
+	DescriptorAllocation m_ShadowSamplers;
 
 	std::unique_ptr<IBL> m_IBL;
 };

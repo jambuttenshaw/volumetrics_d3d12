@@ -18,6 +18,8 @@ ShadowMap::~ShadowMap()
 
 void ShadowMap::CreateShadowMap(UINT width, UINT height, UINT arraySize)
 {
+	m_Dimensions = { width, height };
+
 	const auto desc = CD3DX12_RESOURCE_DESC::Tex2D(s_DSVFormat, width, height, arraySize, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
 
 	D3D12_CLEAR_VALUE clearValue = {};

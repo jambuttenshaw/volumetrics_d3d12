@@ -39,7 +39,10 @@ LightManager::LightManager()
 	// TODO: Sun shadow projection matrices will be handled a lot neater once cascaded shadow maps are implemented
 	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(70.0f, 70.0f, 0.1f, 100.0f);
 
-	m_SunShadowMap.CreateShadowMap(1024, 1024);
+	constexpr UINT shadowMapW = 1024;
+	constexpr UINT shadowMapH = 1024;
+	m_SunShadowMap.CreateShadowMap(shadowMapW, shadowMapH);
+	m_SunESM.CreateExponentialShadowMap(m_SunShadowMap);
 
 
 	// Create light buffers
@@ -52,8 +55,8 @@ LightManager::LightManager()
 
 	// Create shadow sampler
 	{
-		m_ShadowSampler = g_D3DGraphicsContext->GetSamplerHeap()->Allocate(1);
-		ASSERT(m_ShadowSampler.IsValid(), "Failed to alloc!");
+		m_ShadowSamplers = g_D3DGraphicsContext->GetSamplerHeap()->Allocate(ShadowSampler_Count);
+		ASSERT(m_ShadowSamplers.IsValid(), "Failed to alloc!");
 
 		D3D12_SAMPLER_DESC samplerDesc = {};
 		samplerDesc.Filter = D3D12_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
@@ -70,7 +73,12 @@ LightManager::LightManager()
 		samplerDesc.MinLOD = 0.0f;
 		samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
 
-		g_D3DGraphicsContext->GetDevice()->CreateSampler(&samplerDesc, m_ShadowSampler.GetCPUHandle());
+		g_D3DGraphicsContext->GetDevice()->CreateSampler(&samplerDesc, m_ShadowSamplers.GetCPUHandle(ShadowSampler_Comparison));
+
+		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+
+		g_D3DGraphicsContext->GetDevice()->CreateSampler(&samplerDesc, m_ShadowSamplers.GetCPUHandle(ShadowSampler_ESM));
 	}
 
 	m_IBL = std::make_unique<IBL>();
@@ -78,7 +86,7 @@ LightManager::LightManager()
 
 LightManager::~LightManager()
 {
-	m_ShadowSampler.Free();
+	m_ShadowSamplers.Free();
 }
 
 void LightManager::UpdateLightingCB(const XMFLOAT3& eyePos)

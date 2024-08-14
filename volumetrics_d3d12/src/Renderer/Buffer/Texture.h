@@ -4,6 +4,7 @@
 
 using Microsoft::WRL::ComPtr;
 
+using namespace DirectX;
 
 class Texture
 {

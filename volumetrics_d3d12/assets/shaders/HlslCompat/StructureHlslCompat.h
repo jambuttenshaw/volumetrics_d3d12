@@ -133,4 +133,13 @@ struct TonemappingParametersConstantBuffer
 	XMUINT2 OutputDimensions;
 };
 
+
+// ESM
+#define ESM_EXPONENT 80
+
+struct ExponentialShadowMapCB
+{
+	XMUINT2 OutDimensions;
+};
+
 #endif

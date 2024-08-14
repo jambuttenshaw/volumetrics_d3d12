@@ -63,11 +63,14 @@ private:
 
 	// Sub-stages in rendering pipeline
 	void RenderShadowMaps() const;
-
+	void CreateESM() const;
+	
 	void ClearGBuffer() const;
 	void GeometryPass() const;
 	void RenderSkybox() const;
 	void LightingPass() const;
+
+	void RenderVolumetrics() const;
 
 	// Post processing
 	void Tonemapping() const;
@@ -122,4 +125,5 @@ private:
 
 	D3DComputePipeline m_TonemappingPipeline;
 
+	D3DComputePipeline m_ESMDownsamplePipeline;
 };

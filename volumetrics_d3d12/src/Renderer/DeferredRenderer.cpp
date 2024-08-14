@@ -74,6 +74,17 @@ namespace TonemappingRootSignature
 	};
 }
 
+namespace ESMDownsampleTransformRootSignature
+{
+	enum Value
+	{
+		ParamsCB = 0,
+		InShadowMap,
+		OutESM,
+		Count
+	};
+}
+
 
 DeferredRenderer::DeferredRenderer()
 {
@@ -304,6 +315,37 @@ void DeferredRenderer::CreatePipelines()
 
 		m_TonemappingPipeline.Create(&psoDesc);
 	}
+
+	// Create ESM downsample pipeline
+	{
+		D3DComputePipelineDesc psoDesc = {};
+
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+
+		CD3DX12_ROOT_PARAMETER1 rootParams[ESMDownsampleTransformRootSignature::Count];
+		rootParams[ESMDownsampleTransformRootSignature::ParamsCB].InitAsConstants(SizeOfInUint32(ExponentialShadowMapCB), 0);
+		rootParams[ESMDownsampleTransformRootSignature::InShadowMap].InitAsDescriptorTable(1, &ranges[0]);
+		rootParams[ESMDownsampleTransformRootSignature::OutESM].InitAsDescriptorTable(1, &ranges[1]);
+
+		psoDesc.NumRootParameters = ARRAYSIZE(rootParams);
+		psoDesc.RootParameters = rootParams;
+
+		psoDesc.Shader = L"assets/shaders/compute/esm/downsample_transform_cs.hlsl";
+		psoDesc.EntryPoint = L"main";
+
+		{
+			psoDesc.StaticSamplers.push_back(CD3DX12_STATIC_SAMPLER_DESC(
+				0,
+				D3D12_FILTER_MIN_MAG_MIP_POINT,
+				D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+				D3D12_TEXTURE_ADDRESS_MODE_CLAMP
+			));
+		}
+
+		m_ESMDownsamplePipeline.Create(&psoDesc);
+	}
 }
 
 void DeferredRenderer::CreateResolutionDependentResources()
@@ -481,18 +523,10 @@ void DeferredRenderer::Render() const
 
 	LightingPass();
 
-	// Perform volume rendering
-	m_VolumeRenderer->RenderVolumetrics();
-	const VolumetricRendering::ApplyVolumetricsParams params
-	{
-		.OutputUAV = m_OutputUAV.GetGPUHandle(),
-		.DepthBufferSRV = m_SRVs.GetGPUHandle(GB_SRV_Depth),
-		.OutputResolution = { g_D3DGraphicsContext->GetClientWidth(), g_D3DGraphicsContext->GetClientHeight() }
-	};
-	m_VolumeRenderer->ApplyVolumetrics(params);
+	// ESM is used in volumetrics
+	CreateESM();
 
-	const auto barrier = CD3DX12_RESOURCE_BARRIER::UAV(m_OutputResource.GetResource());
-	commandList->ResourceBarrier(1, &barrier);
+	RenderVolumetrics();
 
 	// Switch resource states back
 	{
@@ -556,6 +590,39 @@ void DeferredRenderer::RenderShadowMaps() const
 
 	PIXEndEvent(commandList);
 }
+
+void DeferredRenderer::CreateESM() const
+{
+	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(10), "ESM");
+	const auto& shadowMap = m_LightManager->GetSunShadowMap();
+	const auto& esm = m_LightManager->GetSunESM();
+
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	commandList->ResourceBarrier(1, &barrier);
+
+	m_ESMDownsamplePipeline.Bind(commandList);
+
+	const ExponentialShadowMapCB cb
+	{
+		.OutDimensions = esm.GetDimensions(),
+	};
+	commandList->SetComputeRoot32BitConstants(ESMDownsampleTransformRootSignature::ParamsCB, SizeOfInUint32(cb), &cb, 0);
+	commandList->SetComputeRootDescriptorTable(ESMDownsampleTransformRootSignature::InShadowMap, shadowMap.GetSRV());
+	commandList->SetComputeRootDescriptorTable(ESMDownsampleTransformRootSignature::OutESM, esm.GetUAV());
+
+	const UINT dispatchX = (cb.OutDimensions.x + 15) / 16;
+	const UINT dispatchY = (cb.OutDimensions.y + 15) / 16;
+
+	commandList->Dispatch(dispatchX, dispatchY, 1);
+
+	barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	commandList->ResourceBarrier(1, &barrier);
+
+	PIXEndEvent(commandList);
+}
+
 
 
 void DeferredRenderer::ClearGBuffer() const
@@ -648,7 +715,7 @@ void DeferredRenderer::LightingPass() const
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, ibl->GetSRVTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentSamplers, ibl->GetSamplerTable());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::SunShadowMap, m_LightManager->GetSunShadowMap().GetSRV());
-	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::ShadowMapSampler, m_LightManager->GetShadowSampler());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::ShadowMapSampler, m_LightManager->GetShadowSampler(LightManager::ShadowSampler_Comparison));
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());
 
 	// Dispatch lighting pass
@@ -659,6 +726,29 @@ void DeferredRenderer::LightingPass() const
 	const UINT threadGroupY = (clientHeight + 7) / 8;
 
 	commandList->Dispatch(threadGroupX, threadGroupY, 1);
+
+	PIXEndEvent(commandList);
+}
+
+
+void DeferredRenderer::RenderVolumetrics() const
+{
+	const auto commandList = g_D3DGraphicsContext->GetCommandList();
+
+	PIXBeginEvent(commandList, PIX_COLOR_INDEX(11), "Render Volumetrics");
+
+	// Perform volume rendering
+	m_VolumeRenderer->RenderVolumetrics();
+	const VolumetricRendering::ApplyVolumetricsParams params
+	{
+		.OutputUAV = m_OutputUAV.GetGPUHandle(),
+		.DepthBufferSRV = m_SRVs.GetGPUHandle(GB_SRV_Depth),
+		.OutputResolution = { g_D3DGraphicsContext->GetClientWidth(), g_D3DGraphicsContext->GetClientHeight() }
+	};
+	m_VolumeRenderer->ApplyVolumetrics(params);
+
+	const auto barrier = CD3DX12_RESOURCE_BARRIER::UAV(m_OutputResource.GetResource());
+	commandList->ResourceBarrier(1, &barrier);
 
 	PIXEndEvent(commandList);
 }
