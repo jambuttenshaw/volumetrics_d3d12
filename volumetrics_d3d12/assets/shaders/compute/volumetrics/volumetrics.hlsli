@@ -14,7 +14,7 @@ float HGPhaseFunction(float3 v, float3 l, float g)
 }
 
 
-#define VOLUME_SLICE_EXPONENTIAL 1
+#define VOLUME_SLICE_EXPONENTIAL 0
 
 
 // Froxel helper functions

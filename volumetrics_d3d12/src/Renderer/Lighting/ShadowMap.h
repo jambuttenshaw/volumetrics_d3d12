@@ -7,7 +7,7 @@
 using namespace DirectX;
 
 
-class ShadowMap : public Texture
+class ShadowMap
 {
 public:
 	ShadowMap() = default;
@@ -20,6 +20,7 @@ public:
 	void CreateShadowMap(UINT width, UINT height, UINT arraySize = 1);
 
 	inline const XMUINT2& GetDimensions() const { return m_Dimensions; }
+	inline ID3D12Resource* GetResource() const { return m_Texture.GetResource(); }
 
 	inline D3D12_CPU_DESCRIPTOR_HANDLE GetDSV() const { return m_DSV.GetCPUHandle(); }
 	inline D3D12_GPU_DESCRIPTOR_HANDLE GetSRV() const { return m_SRV.GetGPUHandle(); }
@@ -31,6 +32,7 @@ public:
 
 private:
 	XMUINT2 m_Dimensions;
+	Texture m_Texture;
 
 	static constexpr DXGI_FORMAT s_DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	static constexpr DXGI_FORMAT s_SRVFormat = DXGI_FORMAT_R32_FLOAT;

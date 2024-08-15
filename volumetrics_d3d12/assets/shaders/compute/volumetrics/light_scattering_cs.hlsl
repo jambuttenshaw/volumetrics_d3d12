@@ -91,12 +91,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	float3 in_scattering = emission; // add emission to light scattered into the cameras path at this location
 
 	// Evaluate in-scattering from directional light
+	const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
+
 	{
 		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
 		const float3 el = g_LightCB.DirectionalLight.Intensity * g_LightCB.DirectionalLight.Color;
 
 		const float phase = HGPhaseFunction(v, l, anisotropy);
-		const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
 		in_scattering += phase * visibility * el;
 	}
 
@@ -118,6 +119,18 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	const float3 l_scat = in_scattering * scattering;
 
 	g_LightScatteringVolume[DTid] = float4(l_scat, extinction);
+
+	/*
+	float4 shadowPos = mul(float4(p_ws, 1.0f), g_LightCB.DirectionalLight.ViewProjection);
+	shadowPos /= shadowPos.w;
+
+	float2 shadowMapUV = shadowPos.xy * 0.5f + 0.5f;
+	shadowMapUV.y = 1.0f - shadowMapUV.y;
+
+	const float occluder = log(g_SunESM.SampleLevel(g_ESMSampler, shadowMapUV, 0)) / ESM_EXPONENT;
+
+	g_LightScatteringVolume[DTid] = float4(occluder.xxx, extinction);
+	*/
 }
 
 #endif

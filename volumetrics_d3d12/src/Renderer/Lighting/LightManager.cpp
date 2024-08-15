@@ -39,8 +39,8 @@ LightManager::LightManager()
 	// TODO: Sun shadow projection matrices will be handled a lot neater once cascaded shadow maps are implemented
 	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(70.0f, 70.0f, 0.1f, 100.0f);
 
-	constexpr UINT shadowMapW = 1024;
-	constexpr UINT shadowMapH = 1024;
+	constexpr UINT shadowMapW = 2 * 1024;
+	constexpr UINT shadowMapH = 2 * 1024;
 	m_SunShadowMap.CreateShadowMap(shadowMapW, shadowMapH);
 	m_SunESM.CreateExponentialShadowMap(m_SunShadowMap);
 
@@ -75,7 +75,7 @@ LightManager::LightManager()
 
 		g_D3DGraphicsContext->GetDevice()->CreateSampler(&samplerDesc, m_ShadowSamplers.GetCPUHandle(ShadowSampler_Comparison));
 
-		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
 		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
 
 		g_D3DGraphicsContext->GetDevice()->CreateSampler(&samplerDesc, m_ShadowSamplers.GetCPUHandle(ShadowSampler_ESM));

@@ -78,7 +78,7 @@ D3D12_GPU_VIRTUAL_ADDRESS Scene::GetObjectCBAddress(UINT object) const
 
 bool Scene::DisplayGeneralGui() const
 {
-	bool open = true;
+	bool open = false;
 	if (ImGui::Begin("Scene", &open))
 	{
 	}

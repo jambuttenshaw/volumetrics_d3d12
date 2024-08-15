@@ -139,7 +139,15 @@ struct TonemappingParametersConstantBuffer
 
 struct ExponentialShadowMapCB
 {
+	XMUINT2 InDimensions;
 	XMUINT2 OutDimensions;
+};
+
+
+struct BoxFilterParamsCB
+{
+	XMUINT2 ResourceDimensions;
+	UINT FilterSize;
 };
 
 #endif

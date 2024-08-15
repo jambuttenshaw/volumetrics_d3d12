@@ -20,7 +20,7 @@ void main(uint3 DTid : SV_DispatchThreadId)
 	if (any(DTid.xy >= g_ParamsCB.OutDimensions))
 		return;
 
-	float2 uv = (DTid.xy + float2(0.5f, 0.5f)) / (float2) (g_ParamsCB.OutDimensions);
+	float2 uv = (DTid.xy) / (float2) (g_ParamsCB.OutDimensions - 1);
 
 	float4 accum = float4(0.0f, 0.0f, 0.0f, 0.0f);
 	accum += exp(g_InShadowMap.GatherRed(g_PointSampler, uv, int2(0, 0)) * ESM_EXPONENT);

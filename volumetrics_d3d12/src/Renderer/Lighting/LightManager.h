@@ -33,8 +33,8 @@ public:
 
 	void UpdateLightingCB(const XMFLOAT3& eyePos);
 
-	const ShadowMap& GetSunShadowMap() const { return m_SunShadowMap; }
-	const ExponentialShadowMap& GetSunESM() const { return m_SunESM; }
+	ShadowMap& GetSunShadowMap() { return m_SunShadowMap; }
+	ExponentialShadowMap& GetSunESM() { return m_SunESM; }
 
 	D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSampler(ShadowSampler sampler) const { return m_ShadowSamplers.GetGPUHandle(sampler); }
 

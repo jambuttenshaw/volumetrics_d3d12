@@ -27,7 +27,7 @@ void ShadowMap::CreateShadowMap(UINT width, UINT height, UINT arraySize)
 	clearValue.DepthStencil.Depth = 1.0f;
 	clearValue.DepthStencil.Stencil = 0;
 
-	Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, &clearValue);
+	m_Texture.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, &clearValue);
 
 
 	// Create DSV
@@ -49,7 +49,7 @@ void ShadowMap::CreateShadowMap(UINT width, UINT height, UINT arraySize)
 
 		m_DSV = g_D3DGraphicsContext->GetDSVHeap()->Allocate(1);
 		ASSERT(m_DSV.IsValid(), "Failed to alloc");
-		g_D3DGraphicsContext->GetDevice()->CreateDepthStencilView(GetResource(), &dsvDesc, m_DSV.GetCPUHandle());
+		g_D3DGraphicsContext->GetDevice()->CreateDepthStencilView(m_Texture.GetResource(), &dsvDesc, m_DSV.GetCPUHandle());
 	}
 
 	// Create SRV
@@ -79,7 +79,7 @@ void ShadowMap::CreateShadowMap(UINT width, UINT height, UINT arraySize)
 
 		m_SRV = g_D3DGraphicsContext->GetSRVHeap()->Allocate(1);
 		ASSERT(m_SRV.IsValid(), "Failed to alloc");
-		g_D3DGraphicsContext->GetDevice()->CreateShaderResourceView(GetResource(), &srvDesc, m_SRV.GetCPUHandle());
+		g_D3DGraphicsContext->GetDevice()->CreateShaderResourceView(m_Texture.GetResource(), &srvDesc, m_SRV.GetCPUHandle());
 	}
 
 	m_Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));

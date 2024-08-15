@@ -41,7 +41,7 @@ public:
 	DEFAULT_MOVE(DeferredRenderer)
 
 
-	void SetScene(const Scene& scene, const LightManager& lightManager, const MaterialManager& materialManager);
+	void SetScene(const Scene& scene, LightManager& lightManager, const MaterialManager& materialManager);
 	// Resize gbuffer resources to match the resolution of the back buffer
 	void OnBackBufferResize();
 
@@ -82,7 +82,7 @@ private:
 	// The scene to render
 	const Scene* m_Scene = nullptr;
 
-	const LightManager* m_LightManager = nullptr;
+	LightManager* m_LightManager = nullptr;
 	const MaterialManager* m_MaterialManager = nullptr;
 
 	std::unique_ptr<VolumetricRendering> m_VolumeRenderer;
@@ -126,4 +126,6 @@ private:
 	D3DComputePipeline m_TonemappingPipeline;
 
 	D3DComputePipeline m_ESMDownsamplePipeline;
+
+	std::array<D3DComputePipeline, 2> m_SeparableBoxFilterPipelines;
 };

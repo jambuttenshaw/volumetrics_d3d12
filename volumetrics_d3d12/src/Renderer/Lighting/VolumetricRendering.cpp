@@ -64,7 +64,7 @@ namespace ApplyVolumetricsRootSignature
 }
 
 
-VolumetricRendering::VolumetricRendering(const LightManager& lightManager)
+VolumetricRendering::VolumetricRendering(LightManager& lightManager)
 	: m_LightManager(&lightManager)
 {
 	ASSERT(

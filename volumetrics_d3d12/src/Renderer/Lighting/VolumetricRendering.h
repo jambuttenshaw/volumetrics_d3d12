@@ -34,7 +34,7 @@ public:
 	};
 
 public:
-	VolumetricRendering(const LightManager& lightManager);
+	VolumetricRendering(LightManager& lightManager);
 	~VolumetricRendering();
 
 	DISALLOW_COPY(VolumetricRendering);
@@ -100,7 +100,7 @@ private:
 	DescriptorAllocation m_LightVolumeSampler;
 
 
-	const LightManager* m_LightManager;
+	LightManager* m_LightManager;
 
 	GlobalFogConstantBuffer m_GlobalFogStagingBuffer;
 };

@@ -32,7 +32,7 @@ VolumetricScene::VolumetricScene(D3DApplication* application, UINT maxGeometryIn
 
 	{
 		Transform cubeTransform{ { -1.5f, 6.0f, 0.0f } };
-		cubeTransform.SetScale(XMFLOAT3{ 2.0f, 0.1f, 4.0f });
+		cubeTransform.SetScale(XMFLOAT3{ 2.0f, 0.5f, 4.0f });
 
 		CreateNewInstance(m_CubeGeometryHandle, cubeTransform);
 	}

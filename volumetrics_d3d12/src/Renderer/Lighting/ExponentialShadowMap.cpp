@@ -20,12 +20,19 @@ void ExponentialShadowMap::CreateExponentialShadowMap(const ShadowMap& shadowMap
 	auto desc = CD3DX12_RESOURCE_DESC::Tex2D(ShadowMap::GetSRVFormat(), m_Dimensions.x, m_Dimensions.y);
 	desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
-	Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	for (auto& texture : m_Textures)
+	{
+		texture.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	}
 
 	// Create descriptors
-	m_Descriptors = g_D3DGraphicsContext->GetSRVHeap()->Allocate(2);
+	m_Descriptors = g_D3DGraphicsContext->GetSRVHeap()->Allocate(4);
 	ASSERT(m_Descriptors.IsValid(), "Failed to alloc!");
 
-	g_D3DGraphicsContext->GetDevice()->CreateShaderResourceView(GetResource(), nullptr, m_Descriptors.GetCPUHandle(0));
-	g_D3DGraphicsContext->GetDevice()->CreateUnorderedAccessView(GetResource(), nullptr, nullptr, m_Descriptors.GetCPUHandle(1));
+	UINT i = 0;
+	for (const auto& texture : m_Textures)
+	{
+		g_D3DGraphicsContext->GetDevice()->CreateShaderResourceView(texture.GetResource(), nullptr, m_Descriptors.GetCPUHandle(i++));
+		g_D3DGraphicsContext->GetDevice()->CreateUnorderedAccessView(texture.GetResource(), nullptr, nullptr, m_Descriptors.GetCPUHandle(i++));
+	}
 }

@@ -86,6 +86,18 @@ namespace ESMDownsampleTransformRootSignature
 }
 
 
+namespace SeparableBoxFilterRootSignature
+{
+	enum Value
+	{
+		ParamsCB = 0,
+		InTexture,
+		OutTexture,
+		Count
+	};
+}
+
+
 DeferredRenderer::DeferredRenderer()
 {
 	CreatePipelines();
@@ -103,7 +115,7 @@ DeferredRenderer::~DeferredRenderer()
 	m_OutputRTV.Free();
 }
 
-void DeferredRenderer::SetScene(const Scene& scene, const LightManager& lightManager, const MaterialManager& materialManager)
+void DeferredRenderer::SetScene(const Scene& scene, LightManager& lightManager, const MaterialManager& materialManager)
 {
 	m_Scene = &scene;
 	m_LightManager = &lightManager;
@@ -199,7 +211,7 @@ void DeferredRenderer::CreatePipelines()
 
 		psoDesc.DSVFormat = ShadowMap::GetDSVFormat();
 
-		psoDesc.RasterizerDesc.DepthBias = 10000;
+		psoDesc.RasterizerDesc.DepthBias = 100000;
 		psoDesc.RasterizerDesc.DepthBiasClamp = 0.01f;
 		psoDesc.RasterizerDesc.SlopeScaledDepthBias = 2.5f;
 
@@ -345,6 +357,32 @@ void DeferredRenderer::CreatePipelines()
 		}
 
 		m_ESMDownsamplePipeline.Create(&psoDesc);
+	}
+
+	// Separable box filter
+	{
+		D3DComputePipelineDesc psoDesc = {};
+
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+
+		CD3DX12_ROOT_PARAMETER1 rootParams[SeparableBoxFilterRootSignature::Count];
+		rootParams[SeparableBoxFilterRootSignature::ParamsCB].InitAsConstants(SizeOfInUint32(BoxFilterParamsCB), 0);
+		rootParams[SeparableBoxFilterRootSignature::InTexture].InitAsDescriptorTable(1, &ranges[0]);
+		rootParams[SeparableBoxFilterRootSignature::OutTexture].InitAsDescriptorTable(1, &ranges[1]);
+
+		psoDesc.NumRootParameters = ARRAYSIZE(rootParams);
+		psoDesc.RootParameters = rootParams;
+
+		psoDesc.Shader = L"assets/shaders/compute/filters/separable_box_filter_cs.hlsl";
+		psoDesc.EntryPoint = L"HorizontalPass";
+
+		m_SeparableBoxFilterPipelines.at(0).Create(&psoDesc);
+
+		psoDesc.EntryPoint = L"VerticalPass";
+
+		m_SeparableBoxFilterPipelines.at(1).Create(&psoDesc);
 	}
 }
 
@@ -597,29 +635,67 @@ void DeferredRenderer::CreateESM() const
 
 	PIXBeginEvent(commandList, PIX_COLOR_INDEX(10), "ESM");
 	const auto& shadowMap = m_LightManager->GetSunShadowMap();
-	const auto& esm = m_LightManager->GetSunESM();
+	auto& esm = m_LightManager->GetSunESM();
 
-	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	commandList->ResourceBarrier(1, &barrier);
-
-	m_ESMDownsamplePipeline.Bind(commandList);
-
-	const ExponentialShadowMapCB cb
+	// First perform downsampling and transforming
 	{
-		.OutDimensions = esm.GetDimensions(),
-	};
-	commandList->SetComputeRoot32BitConstants(ESMDownsampleTransformRootSignature::ParamsCB, SizeOfInUint32(cb), &cb, 0);
-	commandList->SetComputeRootDescriptorTable(ESMDownsampleTransformRootSignature::InShadowMap, shadowMap.GetSRV());
-	commandList->SetComputeRootDescriptorTable(ESMDownsampleTransformRootSignature::OutESM, esm.GetUAV());
+		auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetWriteResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		commandList->ResourceBarrier(1, &barrier);
 
-	const UINT dispatchX = (cb.OutDimensions.x + 15) / 16;
-	const UINT dispatchY = (cb.OutDimensions.y + 15) / 16;
+		m_ESMDownsamplePipeline.Bind(commandList);
 
-	commandList->Dispatch(dispatchX, dispatchY, 1);
+		const ExponentialShadowMapCB cb
+		{
+			.InDimensions = shadowMap.GetDimensions(),
+			.OutDimensions = esm.GetDimensions(),
+		};
+		commandList->SetComputeRoot32BitConstants(ESMDownsampleTransformRootSignature::ParamsCB, SizeOfInUint32(cb), &cb, 0);
+		commandList->SetComputeRootDescriptorTable(ESMDownsampleTransformRootSignature::InShadowMap, shadowMap.GetSRV());
+		commandList->SetComputeRootDescriptorTable(ESMDownsampleTransformRootSignature::OutESM, esm.GetUAV());
 
-	barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	commandList->ResourceBarrier(1, &barrier);
+		const UINT dispatchX = (cb.OutDimensions.x + 15) / 16;
+		const UINT dispatchY = (cb.OutDimensions.y + 15) / 16;
 
+		commandList->Dispatch(dispatchX, dispatchY, 1);
+
+		barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetWriteResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		commandList->ResourceBarrier(1, &barrier);
+	}
+
+	esm.FlipResources();
+	// Then perform 11-texel wide separable box blur
+	{
+		const BoxFilterParamsCB cb
+		{
+			.ResourceDimensions = esm.GetDimensions(),
+			.FilterSize = 3
+		};
+
+		for (const auto& pass : m_SeparableBoxFilterPipelines)
+		{
+			auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetWriteResource(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			commandList->ResourceBarrier(1, &barrier);
+
+			pass.Bind(commandList);
+
+			commandList->SetComputeRoot32BitConstants(SeparableBoxFilterRootSignature::ParamsCB, SizeOfInUint32(cb), &cb, 0);
+			commandList->SetComputeRootDescriptorTable(SeparableBoxFilterRootSignature::InTexture, esm.GetSRV());
+			commandList->SetComputeRootDescriptorTable(SeparableBoxFilterRootSignature::OutTexture, esm.GetUAV());
+
+			const UINT dispatchX = (cb.ResourceDimensions.x + 15) / 16;
+			const UINT dispatchY = (cb.ResourceDimensions.y + 15) / 16;
+
+			commandList->Dispatch(dispatchX, dispatchY, 1);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::UAV(esm.GetWriteResource());
+			commandList->ResourceBarrier(1, &barrier);
+
+			barrier = CD3DX12_RESOURCE_BARRIER::Transition(esm.GetWriteResource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+			commandList->ResourceBarrier(1, &barrier);
+
+			esm.FlipResources();
+		}
+	}
 	PIXEndEvent(commandList);
 }
 
