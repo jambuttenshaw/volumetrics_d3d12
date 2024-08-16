@@ -174,6 +174,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -189,6 +190,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -206,6 +208,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -223,6 +226,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -240,6 +244,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -255,7 +260,7 @@
       <PreprocessorDefinitions>WIN32;_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <Optimization>Disabled</Optimization>
@@ -263,11 +268,11 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;DirectXTex.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll;</DelayLoadDLLs>
       <EntryPointSymbol>
       </EntryPointSymbol>
-      <AdditionalLibraryDirectories>vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>vendor/DirectXTex/DirectXTex/Bin/Desktop_2022/$(Platform)/$(Configuration)/;vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
       <EnableDpiAwareness>true</EnableDpiAwareness>
@@ -288,18 +293,18 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;DirectXTex.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll;</DelayLoadDLLs>
       <EntryPointSymbol>
       </EntryPointSymbol>
-      <AdditionalLibraryDirectories>vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>vendor/DirectXTex/DirectXTex/Bin/Desktop_2022/$(Platform)/$(Configuration)/;vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
       <EnableDpiAwareness>true</EnableDpiAwareness>
@@ -320,18 +325,18 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;DirectXTex.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll;</DelayLoadDLLs>
       <EntryPointSymbol>
       </EntryPointSymbol>
-      <AdditionalLibraryDirectories>vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>vendor/DirectXTex/DirectXTex/Bin/Desktop_2022/$(Platform)/$(Configuration)/;vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
       <EnableDpiAwareness>true</EnableDpiAwareness>
@@ -352,7 +357,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
       <WholeProgramOptimization>true</WholeProgramOptimization>
     </ClCompile>
     <Link>
@@ -360,11 +365,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;DirectXTex.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll;</DelayLoadDLLs>
       <EntryPointSymbol>
       </EntryPointSymbol>
-      <AdditionalLibraryDirectories>vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>vendor/DirectXTex/DirectXTex/Bin/Desktop_2022/$(Platform)/$(Configuration)/;vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
       <EnableDpiAwareness>true</EnableDpiAwareness>
@@ -385,7 +390,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)/vendor/DirectXTex/;vendor/;src/;vendor/imgui/;vendor/DirectX-Headers/include;vendor/PIX/Include/WinPixEventRuntime;assets/shaders/;vendor/args/;vendor/json/include/;vendor/NvPerf/Samples/NvPerfUtility/include/;vendor/NvPerf/NvPerf/include/windows-desktop-x64;vendor/NvPerf/NvPerf/include</AdditionalIncludeDirectories>
       <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
@@ -393,11 +398,11 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxcompiler.lib;dxguid.lib;WinPixEventRuntime.lib;DirectXTex.lib;$(CoreLibraryDependencies);%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll;</DelayLoadDLLs>
       <EntryPointSymbol>
       </EntryPointSymbol>
-      <AdditionalLibraryDirectories>vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>vendor/DirectXTex/DirectXTex/Bin/Desktop_2022/$(Platform)/$(Configuration)/;vendor/PIX/bin/x64/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
       <EnableDpiAwareness>true</EnableDpiAwareness>
@@ -456,6 +461,8 @@
     <ClCompile Include="src\Renderer\Profiling\NvGPUProfiler.cpp" />
     <ClCompile Include="src\Renderer\Profiling\GPUProfiler.cpp" />
     <ClCompile Include="src\Windows\Win32Application.cpp" />
+    <ClCompile Include="vendor\DirectXMath\SHMath\DirectXSH.cpp" />
+    <ClCompile Include="vendor\DirectXMath\SHMath\DirectXSHD3D12.cpp" />
     <ClCompile Include="vendor\imgui\backends\imgui_impl_dx12.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -566,6 +573,21 @@
     <ClInclude Include="src\Renderer\Hlsl\RaytracingHlslCompat.h" />
     <ClInclude Include="src\Renderer\Memory\MemoryAllocator.h" />
     <ClInclude Include="src\Windows\Win32Application.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathAVX.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathAVX2.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathBE.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathF16C.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathFMA3.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathFMA4.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathSSE3.h" />
+    <ClInclude Include="vendor\DirectXMath\Extensions\DirectXMathSSE4.h" />
+    <ClInclude Include="vendor\DirectXMath\Inc\DirectXCollision.h" />
+    <ClInclude Include="vendor\DirectXMath\Inc\DirectXColors.h" />
+    <ClInclude Include="vendor\DirectXMath\Inc\DirectXMath.h" />
+    <ClInclude Include="vendor\DirectXMath\Inc\DirectXPackedVector.h" />
+    <ClInclude Include="vendor\DirectXMath\MatrixStack\DirectXMatrixStack.h" />
+    <ClInclude Include="vendor\DirectXMath\SHMath\DirectXSH.h" />
+    <ClInclude Include="vendor\DirectXMath\XDSP\XDSP.h" />
     <ClInclude Include="vendor\imgui\backends\imgui_impl_dx12.h" />
     <ClInclude Include="vendor\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="vendor\imgui\imconfig.h" />
@@ -788,6 +810,18 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile_Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Profile|x64'">true</ExcludedFromBuild>
     </None>
+    <None Include="vendor\DirectXMath\Inc\DirectXCollision.inl" />
+    <None Include="vendor\DirectXMath\Inc\DirectXMathConvert.inl" />
+    <None Include="vendor\DirectXMath\Inc\DirectXMathMatrix.inl" />
+    <None Include="vendor\DirectXMath\Inc\DirectXMathMisc.inl" />
+    <None Include="vendor\DirectXMath\Inc\DirectXMathVector.inl" />
+    <None Include="vendor\DirectXMath\Inc\DirectXPackedVector.inl" />
+    <None Include="vendor\DirectXTex\DirectXTex\DirectXTex_Desktop_2022.vcxproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="vendor\DirectXTex\DirectXTex\DirectXTex_Desktop_2022.vcxproj">
+      <Project>{371b9fa9-4c90-4ac6-a123-aced756d6c77}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -6,6 +6,7 @@
 #include "HlslCompat/LightingHlslCompat.h"
 
 #include "pix.h"
+#include "DirectXTex/DirectXTex.h"
 
 
 // Pipeline root signatures
@@ -168,7 +169,7 @@ void IBL::CreateResources()
 	{
 		// Create irradiance map
 		D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Tex2D(
-			DXGI_FORMAT_R8G8B8A8_UNORM,
+			DXGI_FORMAT_R16G16B16A16_FLOAT,
 			m_IrradianceMapResolution,
 			m_IrradianceMapResolution,
 			6,
@@ -471,4 +472,87 @@ void IBL::ProcessEnvironmentMap(std::unique_ptr<Texture>&& map)
 	irradianceMapFaceUAVs.Free();
 	BRDFIntegrationMapUAV.Free();
 	PEMFaceUAVs.Free();
+}
+
+
+void IBL::ProjectIrradianceMapToSH()
+{
+	const auto device = g_D3DGraphicsContext->GetDevice();
+	const auto queue = g_D3DGraphicsContext->GetDirectCommandQueue();
+
+	const auto& irradianceMapDesc = m_IrradianceMap->GetResource()->GetDesc();
+
+	// This is slow but that's okay for now
+	ScratchImage result;
+	THROW_IF_FAIL(CaptureTexture(queue->GetCommandQueue(), m_IrradianceMap->GetResource(), true, result, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+	// Wait until all work has finished to be safe
+	queue->WaitForIdleCPUBlocking();
+
+	ASSERT(result.GetImageCount() == 6, "Incorrect number of images!");
+
+	D3D12_SUBRESOURCE_DATA subresources[6];
+	const Image* image = result.GetImages();
+	for (auto& subresource : subresources)
+	{
+		subresource.RowPitch = static_cast<LONG_PTR>(image->rowPitch);
+		subresource.SlicePitch = static_cast<LONG_PTR>(image->slicePitch);
+		subresource.pData = image->pixels;
+
+		// Go to next image
+		image++;
+	}
+
+	// Now create SH representation from the subresource data
+	THROW_IF_FAIL(SHProjectCubeMap(3, irradianceMapDesc, subresources,
+		m_SkyIrradianceSH.R.data(), m_SkyIrradianceSH.G.data(), m_SkyIrradianceSH.B.data()
+	));
+}
+
+
+void IBL::PopulateSkyIrradianceSHConstants(XMFLOAT4* OutConstants) const
+{
+	const float SqrtPI = sqrt(XM_PI);
+	const float Coefficient0 = 1.0f / (2 * SqrtPI);
+	const float Coefficient1 = sqrtf(3.f) / (3 * SqrtPI);
+	const float Coefficient2 = sqrtf(15.f) / (8 * SqrtPI);
+	const float Coefficient3 = sqrtf(5.f) / (16 * SqrtPI);
+	const float Coefficient4 = .5f * Coefficient2;
+
+	// Pack the SH coefficients in a way that makes applying the lighting use the least shader instructions
+	// This has the diffuse convolution coefficients baked in
+	// See "Stupid Spherical Harmonics (SH) Tricks"
+	OutConstants[0].x = -Coefficient1 * m_SkyIrradianceSH.R[3];
+	OutConstants[0].y = -Coefficient1 * m_SkyIrradianceSH.R[1];
+	OutConstants[0].z = Coefficient1 * m_SkyIrradianceSH.R[2];
+	OutConstants[0].w = Coefficient0 * m_SkyIrradianceSH.R[0] - Coefficient3 * m_SkyIrradianceSH.R[6];
+
+	OutConstants[1].x = -Coefficient1 * m_SkyIrradianceSH.G[3];
+	OutConstants[1].y = -Coefficient1 * m_SkyIrradianceSH.G[1];
+	OutConstants[1].z = Coefficient1 * m_SkyIrradianceSH.G[2];
+	OutConstants[1].w = Coefficient0 * m_SkyIrradianceSH.G[0] - Coefficient3 * m_SkyIrradianceSH.G[6];
+
+	OutConstants[2].x = -Coefficient1 * m_SkyIrradianceSH.B[3];
+	OutConstants[2].y = -Coefficient1 * m_SkyIrradianceSH.B[1];
+	OutConstants[2].z = Coefficient1 * m_SkyIrradianceSH.B[2];
+	OutConstants[2].w = Coefficient0 * m_SkyIrradianceSH.B[0] - Coefficient3 * m_SkyIrradianceSH.B[6];
+
+	OutConstants[3].x = Coefficient2 * m_SkyIrradianceSH.R[4];
+	OutConstants[3].y = -Coefficient2 * m_SkyIrradianceSH.R[5];
+	OutConstants[3].z = 3 * Coefficient3 * m_SkyIrradianceSH.R[6];
+	OutConstants[3].w = -Coefficient2 * m_SkyIrradianceSH.R[7];
+
+	OutConstants[4].x = Coefficient2 * m_SkyIrradianceSH.G[4];
+	OutConstants[4].y = -Coefficient2 * m_SkyIrradianceSH.G[5];
+	OutConstants[4].z = 3 * Coefficient3 * m_SkyIrradianceSH.G[6];
+	OutConstants[4].w = -Coefficient2 * m_SkyIrradianceSH.G[7];
+
+	OutConstants[5].x = Coefficient2 * m_SkyIrradianceSH.B[4];
+	OutConstants[5].y = -Coefficient2 * m_SkyIrradianceSH.B[5];
+	OutConstants[5].z = 3 * Coefficient3 * m_SkyIrradianceSH.B[6];
+	OutConstants[5].w = -Coefficient2 * m_SkyIrradianceSH.B[7];
+
+	OutConstants[6].x = Coefficient4 * m_SkyIrradianceSH.R[8];
+	OutConstants[6].y = Coefficient4 * m_SkyIrradianceSH.G[8];
+	OutConstants[6].z = Coefficient4 * m_SkyIrradianceSH.B[8];
+	OutConstants[6].w = 1;
 }

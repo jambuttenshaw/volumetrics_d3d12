@@ -33,6 +33,15 @@ class IBL
 		SamplerCount
 	};
 
+	template<size_t Order>
+	struct SkyIrradianceSH
+	{
+		// A set of SH Coefficients for each channel to represent sky irradiance
+		std::array<float, Order * Order> R;
+		std::array<float, Order * Order> G;
+		std::array<float, Order * Order> B;
+	};
+
 public:
 	IBL();
 	~IBL();
@@ -40,8 +49,11 @@ public:
 	DISALLOW_COPY(IBL)
 	DEFAULT_MOVE(IBL)
 
+	// These methods are REALLY SLOW - only call once
 	void ProcessEnvironmentMap(std::unique_ptr<Texture>&& map);
+	void ProjectIrradianceMapToSH();
 
+	void PopulateSkyIrradianceSHConstants(XMFLOAT4* OutConstants) const;
 
 	// Get resources
 	inline Texture* GetEnvironmentMap() const { return m_EnvironmentMap.get(); }
@@ -70,6 +82,9 @@ private:
 	std::unique_ptr<Texture> m_IrradianceMap;
 	std::unique_ptr<Texture> m_BRDFIntegrationMap;
 	std::unique_ptr<Texture> m_PreFilteredEnvironmentMap;
+
+	// Spherical harmonic representation of sky irradiance
+	SkyIrradianceSH<3> m_SkyIrradianceSH;
 
 	// All descriptors for global lighting
 	DescriptorAllocation m_GlobalLightingSRVs;

@@ -34,8 +34,11 @@ public:
 	void UpdateLightingCB(const XMFLOAT3& eyePos);
 
 	ShadowMap& GetSunShadowMap() { return m_SunShadowMap; }
-	ExponentialShadowMap& GetSunESM() { return m_SunESM; }
 
+	ExponentialShadowMap& GetSunESM() { return m_SunESM; }
+	inline bool IsUsingESM() const { return m_UseESM; }
+
+	D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSamplers() const { return m_ShadowSamplers.GetGPUHandle(); }
 	D3D12_GPU_DESCRIPTOR_HANDLE GetShadowSampler(ShadowSampler sampler) const { return m_ShadowSamplers.GetGPUHandle(sampler); }
 
 	// Call each frame to move the latest lighting data to the GPU
@@ -59,7 +62,9 @@ private:
 
 	XMMATRIX m_ShadowCameraProjectionMatrix;
 	ShadowMap m_SunShadowMap;	// Shadow map for the directional light
+
 	ExponentialShadowMap m_SunESM;
+	bool m_UseESM;
 
 	// Light GPU Resources
 	// This is a buffered resource so that light data can be modified between frames

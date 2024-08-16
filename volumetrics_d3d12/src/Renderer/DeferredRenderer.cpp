@@ -561,8 +561,11 @@ void DeferredRenderer::Render() const
 
 	LightingPass();
 
-	// ESM is used in volumetrics
-	CreateESM();
+	if (m_LightManager->IsUsingESM())
+	{
+		// ESM is used in volumetrics
+		CreateESM();
+	}
 
 	RenderVolumetrics();
 

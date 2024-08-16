@@ -19,6 +19,7 @@ void CartesianDirectionToSpherical(const XMFLOAT3& direction, float& phi, float&
 
 
 LightManager::LightManager()
+	: m_UseESM(false)
 {
 	// Populate default light properties
 	m_LightingCBStaging.DirectionalLight.Direction = { 0.0f, -0.7f, 0.7f };
@@ -37,10 +38,10 @@ LightManager::LightManager()
 
 	// Set up shadow camera and shadow map
 	// TODO: Sun shadow projection matrices will be handled a lot neater once cascaded shadow maps are implemented
-	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(70.0f, 70.0f, 0.1f, 100.0f);
+	m_ShadowCameraProjectionMatrix = XMMatrixOrthographicLH(30.0f, 30.0f, 0.1f, 100.0f);
 
-	constexpr UINT shadowMapW = 2 * 1024;
-	constexpr UINT shadowMapH = 2 * 1024;
+	constexpr UINT shadowMapW = 1024;
+	constexpr UINT shadowMapH = 1024;
 	m_SunShadowMap.CreateShadowMap(shadowMapW, shadowMapH);
 	m_SunESM.CreateExponentialShadowMap(m_SunShadowMap);
 
@@ -75,7 +76,7 @@ LightManager::LightManager()
 
 		g_D3DGraphicsContext->GetDevice()->CreateSampler(&samplerDesc, m_ShadowSamplers.GetCPUHandle(ShadowSampler_Comparison));
 
-		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+		samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
 		samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
 
 		g_D3DGraphicsContext->GetDevice()->CreateSampler(&samplerDesc, m_ShadowSamplers.GetCPUHandle(ShadowSampler_ESM));
@@ -108,6 +109,10 @@ void LightManager::UpdateLightingCB(const XMFLOAT3& eyePos)
 	// Now update the CB with the new camera matrix
 	const XMMATRIX viewProj = XMMatrixMultiply(view, m_ShadowCameraProjectionMatrix);
 	m_LightingCBStaging.DirectionalLight.ViewProjection = XMMatrixTranspose(viewProj);
+
+	m_LightingCBStaging.DirectionalLight.UseESM = m_UseESM;
+
+	m_IBL->PopulateSkyIrradianceSHConstants(m_LightingCBStaging.SkyIrradianceEnvironmentMap);
 }
 
 void LightManager::CopyStagingBuffers() const
@@ -162,6 +167,8 @@ void LightManager::DrawGui()
 		{
 			directionalLight.Intensity = max(0, directionalLight.Intensity);
 		}
+
+		ImGui::Checkbox("Use ESM", &m_UseESM);
 	}
 
 	for (size_t i = 0; i < m_PointLightsStaging.size(); i++)

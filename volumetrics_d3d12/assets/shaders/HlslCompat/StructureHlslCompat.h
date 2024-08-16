@@ -75,10 +75,13 @@ struct LightingConstantBuffer
 		XMFLOAT3 Direction;
 		float Intensity;
 		XMFLOAT3 Color;
-		float Padding;
+		UINT UseESM;
 
 		XMMATRIX ViewProjection;
 	} DirectionalLight;
+
+	// From "Stupid Spherical Harmonics (SH) Tricks"
+	XMFLOAT4 SkyIrradianceEnvironmentMap[7];
 
 	UINT PointLightCount;
 };

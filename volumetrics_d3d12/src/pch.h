@@ -26,7 +26,9 @@
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <DirectXMath.h>
+
+#include "DirectXMath/SHMath/DirectXSH.h"
+#include "DirectXTex/DirectXTex.h"
 
 #include <string>
 #include <vector>

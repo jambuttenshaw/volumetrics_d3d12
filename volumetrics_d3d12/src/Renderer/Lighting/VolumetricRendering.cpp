@@ -222,7 +222,7 @@ void VolumetricRendering::CreatePipelines()
 		CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
 		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0);
 		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
-		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0);
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0);
 		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
 
 		CD3DX12_ROOT_PARAMETER1 rootParams[LightScatteringRootSignature::Count];
@@ -385,13 +385,15 @@ void VolumetricRendering::LightScattering() const
 
 	m_LightScatteringPipeline.Bind(commandList);
 
+	const D3D12_GPU_DESCRIPTOR_HANDLE shadowMap = m_LightManager->IsUsingESM() ? m_LightManager->GetSunESM().GetSRV() : m_LightManager->GetSunShadowMap().GetSRV();
+
 	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::LightConstantBuffer, m_LightManager->GetLightingConstantBuffer());
 	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(0));
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::VBuffer, m_Descriptors.GetGPUHandle(SRV_VBufferA));
 	commandList->SetComputeRootShaderResourceView(LightScatteringRootSignature::PointLightBuffer, m_LightManager->GetPointLightBuffer());
-	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::SunESM, m_LightManager->GetSunESM().GetSRV());
-	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::ShadowSampler, m_LightManager->GetShadowSampler(LightManager::ShadowSampler_ESM));
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::SunESM, shadowMap);
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::ShadowSampler, m_LightManager->GetShadowSamplers());
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::LightScatteringVolume, m_Descriptors.GetGPUHandle(UAV_LightScatteringVolume));
 
 	commandList->Dispatch(m_DispatchGroups.x, m_DispatchGroups.y, m_DispatchGroups.z);

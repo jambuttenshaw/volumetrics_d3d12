@@ -10,3 +10,9 @@
 [submodule "volumetrics_d3d12/vendor/json"]
 	path = volumetrics_d3d12/vendor/json
 	url = https://github.com/nlohmann/json
+[submodule "volumetrics_d3d12/vendor/DirectXMath"]
+	path = volumetrics_d3d12/vendor/DirectXMath
+	url = https://github.com/microsoft/DirectXMath/
+[submodule "volumetrics_d3d12/vendor/DirectXTex"]
+	path = volumetrics_d3d12/vendor/DirectXTex
+	url = https://github.com/microsoft/DirectXTex

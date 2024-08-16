@@ -30,11 +30,10 @@ Texture3D<float4> g_VBufferB : register(t1);
 
 // Scene Lighting resources
 StructuredBuffer<PointLightGPUData> g_PointLights : register(t2);
-Texture2D<float> g_SunESM : register(t3);
+Texture2D<float> g_SunSM : register(t3);
 
-
-SamplerState g_ESMSampler : register(s0);
-
+SamplerComparisonState g_SMSampler : register(s0);
+SamplerState g_ESMSampler : register(s1);
 
 RWTexture3D<float4> g_LightScatteringVolume : register(u0);
 
@@ -65,8 +64,19 @@ float GetVisibility(float3 worldPos)
 	float2 shadowMapUV = shadowPos.xy * 0.5f + 0.5f;
 	shadowMapUV.y = 1.0f - shadowMapUV.y;
 
+	return g_SunSM.SampleCmpLevelZero(g_SMSampler, shadowMapUV, shadowPos.z);
+}
+
+float GetVisibility_ESM(float3 worldPos)
+{
+	float4 shadowPos = mul(float4(worldPos, 1.0f), g_LightCB.DirectionalLight.ViewProjection);
+	shadowPos /= shadowPos.w;
+
+	float2 shadowMapUV = shadowPos.xy * 0.5f + 0.5f;
+	shadowMapUV.y = 1.0f - shadowMapUV.y;
+
 	const float receiver = exp(shadowPos.z * ESM_EXPONENT);
-	const float occluder = g_SunESM.SampleLevel(g_ESMSampler, shadowMapUV, 0);
+	const float occluder = g_SunSM.SampleLevel(g_ESMSampler, shadowMapUV, 0);
 	return 1.0f - saturate(receiver / occluder);
 }
 
@@ -90,15 +100,21 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	float3 in_scattering = emission; // add emission to light scattered into the cameras path at this location
 
-	// Evaluate in-scattering from directional light
-	const float visibility = GetVisibility(p_ws); // Sample shadow map to get visibility
+	const float sun_visibility = g_LightCB.DirectionalLight.UseESM ? GetVisibility_ESM(p_ws) : GetVisibility(p_ws); // Sample shadow map to get visibility
 
+	// Evaluate in-scattering from directional light
 	{
 		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
 		const float3 el = g_LightCB.DirectionalLight.Intensity * g_LightCB.DirectionalLight.Color;
 
 		const float phase = HGPhaseFunction(v, l, anisotropy);
-		in_scattering += phase * visibility * el;
+
+		in_scattering += phase * sun_visibility * el;
+	}
+
+	// Evaluate sky ambient lighting
+	{
+		in_scattering += sun_visibility * GetSkySHDiffuse(v * anisotropy, g_LightCB.SkyIrradianceEnvironmentMap);
 	}
 
 
