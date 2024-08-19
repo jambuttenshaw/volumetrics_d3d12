@@ -78,6 +78,40 @@ float3 calculateAmbientLighting(
 	float3 f0,
 	float roughness,
 	float metallic,
+	XMFLOAT4 skyIrradianceEnvironmentMap[7],
+	Texture2D brdfMap,
+	TextureCube prefilterMap,
+	SamplerState environmentSampler,
+	SamplerState brdfSampler)
+{
+    // ues IBL for ambient lighting
+	const float3 F = shlick_fresnel_roughness_reflectance(f0, v, n, roughness);
+        
+	const float3 kS = F;
+	float3 kD = 1.0f - kS;
+	kD *= 1.0f - metallic;
+        
+	const float3 irradiance = GetSkySHDiffuse(n, skyIrradianceEnvironmentMap);
+	const float3 diffuse = irradiance * albedo;
+        
+    // sample both the pre-filter map and the BRDF lut and combine them together as per the Split-Sum approximation to get the IBL specular part.
+	const float MAX_REFLECTION_LOD = 4.0f;
+	const float3 r = normalize(reflect(-v, n));
+
+	const float3 prefilteredColor = prefilterMap.SampleLevel(environmentSampler, r, roughness * MAX_REFLECTION_LOD).rgb;
+	const float2 brdf = brdfMap.SampleLevel(brdfSampler, float2(max(dot(n, v), 0.0f) + 0.01f, roughness), 0.0f).rg;
+	const float3 specular = prefilteredColor * (F * brdf.x + brdf.y);
+
+	return kD * diffuse + specular;
+}
+
+float3 calculateAmbientLighting(
+	float3 n,
+	float3 v,
+	float3 albedo,
+	float3 f0,
+	float roughness,
+	float metallic,
 	TextureCube irradianceMap,
 	Texture2D brdfMap,
 	TextureCube prefilterMap,

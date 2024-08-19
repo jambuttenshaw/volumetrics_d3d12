@@ -154,7 +154,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	if (g_VolumeCB.UseTemporalReprojection)
 	{
-		const uint3 rand32Bits = Rand4DPCG32(int4(DTid, g_PassCB.FrameIndexMod8)).xyz;
+		const uint3 rand32Bits = Rand4DPCG32(int4(DTid, g_PassCB.FrameIndexMod16)).xyz;
 		const float3 rand3D = (float3(rand32Bits) / float(uint(0xffffffff))) - 0.5f;
 		cellOffset = g_VolumeCB.LightScatteringJitterMultiplier * rand3D;
 	}

@@ -82,7 +82,7 @@ private:
 	inline D3D12_GPU_DESCRIPTOR_HANDLE GetPreviousLSV_SRV() const { return m_Descriptors.GetGPUHandle(SRV_LightScatteringVolume0 + (1 - m_CurrentLightScatteringVolume)); }
 
 private:
-	XMUINT3 m_VolumeResolution = { 512, 288, 256 };
+	XMUINT3 m_VolumeResolution = { 512, 288, 128 };
 	XMUINT3 m_DispatchGroups;
 
 	DXGI_FORMAT m_Format = DXGI_FORMAT_R16G16B16A16_FLOAT;

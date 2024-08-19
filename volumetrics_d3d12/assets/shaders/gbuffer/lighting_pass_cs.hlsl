@@ -138,21 +138,35 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	}
 
 	// Calculate ambient lighting
-	const float3 ambient = calculateAmbientLighting(
-		normal,
-		v,
-		albedo,
-		f0,
-		roughnessMetallic.x, 
-		roughnessMetallic.y,
-		g_IrradianceMap,
-		g_BRDFIntegrationMap,
-		g_PrefilteredEnvironmentMap,
-		g_EnvironmentSampler,
-		g_BRDFIntegrationSampler
-	);
+	const float3 ambient = g_LightCB.UseSHIrradiance ?
+		calculateAmbientLighting(
+			normal,
+			v,
+			albedo,
+			f0,
+			roughnessMetallic.x,
+			roughnessMetallic.y,
+			g_LightCB.SkyIrradianceEnvironmentMap,
+			g_BRDFIntegrationMap,
+			g_PrefilteredEnvironmentMap,
+			g_EnvironmentSampler,
+			g_BRDFIntegrationSampler
+		) :
+		calculateAmbientLighting(
+			normal,
+			v,
+			albedo,
+			f0,
+			roughnessMetallic.x, 
+			roughnessMetallic.y,
+			g_IrradianceMap,
+			g_BRDFIntegrationMap,
+			g_PrefilteredEnvironmentMap,
+			g_EnvironmentSampler,
+			g_BRDFIntegrationSampler
+		);
 
-	//lo += ambient;
+	lo += ambient;
 
 	const float3 color = lo;
 

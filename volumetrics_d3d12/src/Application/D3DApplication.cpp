@@ -385,7 +385,7 @@ void D3DApplication::UpdatePassCB()
 	m_PassCB.TotalTime = m_Timer.GetTimeSinceReset();
 	m_PassCB.DeltaTime = m_Timer.GetDeltaTime();
 
-	m_PassCB.FrameIndexMod8 = static_cast<UINT>(m_GraphicsContext->GetTotalFrameCount() % 8);
+	m_PassCB.FrameIndexMod16 = static_cast<UINT>(m_GraphicsContext->GetTotalFrameCount() % 16);
 
 	// Set the previous view and proj to the new view and proj
 	m_PrevView = view;
@@ -512,44 +512,20 @@ bool D3DApplication::ImGuiApplicationInfo()
 
 		ImGui::Separator();
 		{
-			auto RenderFlagOption = [&](const char* name, UINT value)-> bool
-				{
-					bool flag = m_PassCB.Flags & value;
-					if (ImGui::Checkbox(name, &flag))
-					{
-						if (flag)
-							m_PassCB.Flags |= value;
-						else
-							m_PassCB.Flags &= ~value;
-						return true;
-					}
-					return false;
-				};
-
-			ImGui::Text("View Mode");
-
-			const char* GBufferDebugViews[] = {
-				"None", "Albedo", "Normal", "Roughness/Metallic", "Depth"
-			};
-			int gbDbg = static_cast<int>(m_GBufferDebugView);
-			if (ImGui::Combo("GBuffer View", &gbDbg, GBufferDebugViews, ARRAYSIZE(GBufferDebugViews)))
-			{
-				m_GBufferDebugView = static_cast<GBufferDebugView>(gbDbg);
-			}
-
-			ImGui::Text("Lighting Options");
+			m_DeferredRenderer->DrawGui();
 		}
-		ImGui::Separator();
-
-		m_DeferredRenderer->DrawGui();
 
 		ImGui::Separator();
-		ImGui::Text("Lighting");
-		m_LightManager->DrawGui();
+		if (ImGui::CollapsingHeader("Lighting"))
+		{
+			m_LightManager->DrawGui();
+		}
 
 		ImGui::Separator();
-		ImGui::Text("Materials");
-		m_MaterialManager->DrawGui();
+		if (ImGui::CollapsingHeader("Materials"))
+		{
+			m_MaterialManager->DrawGui();
+		}
 
 		ImGui::Separator();
 

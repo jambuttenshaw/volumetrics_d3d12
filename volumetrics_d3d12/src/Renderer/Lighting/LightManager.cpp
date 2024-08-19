@@ -26,6 +26,8 @@ LightManager::LightManager()
 	m_LightingCBStaging.DirectionalLight.Intensity = 2.0f;
 	m_LightingCBStaging.DirectionalLight.Color = { 1.0f, 1.0f, 1.0f };
 
+	m_LightingCBStaging.UseSHIrradiance = false;
+
 	m_LightingCBStaging.PointLightCount = s_MaxLights;
 
 	for (auto& light : m_PointLightsStaging)
@@ -169,6 +171,17 @@ void LightManager::DrawGui()
 		}
 
 		ImGui::Checkbox("Use ESM", &m_UseESM);
+	}
+
+	{
+		ImGui::Text("Ambient Light");
+
+		static const char* diffuseIrradianceModes[] = {"Cubemap", "SH"};
+		int useSH = static_cast<int>(m_LightingCBStaging.UseSHIrradiance);
+		if (ImGui::Combo("Diffuse Irradiance Method", &useSH, diffuseIrradianceModes, ARRAYSIZE(diffuseIrradianceModes)))
+		{
+			m_LightingCBStaging.UseSHIrradiance = static_cast<UINT>(useSH);
+		}
 	}
 
 	for (size_t i = 0; i < m_PointLightsStaging.size(); i++)

@@ -925,6 +925,9 @@ void DeferredRenderer::DrawGui()
 	{
 		ImGui::Checkbox("Use Volumetrics", &m_UseVolumetrics);
 		GuiHelpers::DisableScope disable(!m_UseVolumetrics);
-		m_VolumeRenderer->DrawGui();
+		if (ImGui::CollapsingHeader("Volumetrics"))
+		{
+			m_VolumeRenderer->DrawGui();
+		}
 	}
 }

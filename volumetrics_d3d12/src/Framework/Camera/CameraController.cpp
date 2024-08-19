@@ -64,7 +64,7 @@ void CameraController::Update(float deltaTime)
 	// Don't use mouse input if mouse is not hidden
 	if (m_InputManager->IsMouseHidden() || m_InputManager->IsKeyDown(KEY_MBUTTON))
 	{
-		const float mouseMove = m_RotateSpeed * 0.001f;
+		const float mouseMove = m_RotateSpeed * deltaTime;
 
 		// Rotate from mouse input
 		const INT dx = m_InputManager->GetMouseDeltaX();

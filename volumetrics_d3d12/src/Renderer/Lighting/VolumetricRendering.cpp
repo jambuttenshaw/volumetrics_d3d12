@@ -477,51 +477,63 @@ void VolumetricRendering::VolumeIntegration() const
 
 void VolumetricRendering::DrawGui()
 {
-	ImGui::Text("Volumetrics");
-
 	ImGui::SliderFloat("Max Distance", &m_VolumetricsStagingBuffer.MaxVolumeDistance, 0.1f, 100.0f);
 
-	ImGui::Text("Global Fog");
-
-	XMFLOAT3 albedo = m_GlobalFogStagingBuffer.Albedo;
-	if (ImGui::DragFloat3("Albedo", &albedo.x, 0.01f))
+	if (ImGui::TreeNode("Global Fog"))
 	{
-		albedo.x = max(0.0f, albedo.x);
-		albedo.y = max(0.0f, albedo.y);
-		albedo.z = max(0.0f, albedo.z);
-		m_GlobalFogStagingBuffer.Albedo = albedo;
+		XMFLOAT3 albedo = m_GlobalFogStagingBuffer.Albedo;
+		if (ImGui::DragFloat3("Albedo", &albedo.x, 0.01f))
+		{
+			albedo.x = max(0.0f, albedo.x);
+			albedo.y = max(0.0f, albedo.y);
+			albedo.z = max(0.0f, albedo.z);
+			m_GlobalFogStagingBuffer.Albedo = albedo;
+		}
+
+		if (ImGui::DragFloat("Extinction", &m_GlobalFogStagingBuffer.Extinction, 0.01f))
+		{
+			m_GlobalFogStagingBuffer.Extinction = max(0.0f, m_GlobalFogStagingBuffer.Extinction);
+		}
+
+		XMFLOAT3 emission = m_GlobalFogStagingBuffer.Emission;
+		if (ImGui::DragFloat3("Emission", &emission.x, 0.01f))
+		{
+			emission.x = max(0.0f, emission.x);
+			emission.y = max(0.0f, emission.y);
+			emission.z = max(0.0f, emission.z);
+			m_GlobalFogStagingBuffer.Emission = emission;
+		}
+
+		ImGui::SliderFloat("Anisotropy", &m_GlobalFogStagingBuffer.Anisotropy, -0.99f, 0.99f);
+
+		ImGui::DragFloat("Fog Height", &m_GlobalFogStagingBuffer.MaxHeight, 0.01f);
+		ImGui::DragFloat("Fog Radius", &m_GlobalFogStagingBuffer.Radius, 0.01f);
+
+		ImGui::TreePop();
 	}
 
-	if (ImGui::DragFloat("Extinction", &m_GlobalFogStagingBuffer.Extinction, 0.01f))
+	if (ImGui::TreeNode("Lighting"))
 	{
-		m_GlobalFogStagingBuffer.Extinction = max(0.0f, m_GlobalFogStagingBuffer.Extinction);
+
+
+		ImGui::TreePop();
 	}
 
-	XMFLOAT3 emission = m_GlobalFogStagingBuffer.Emission;
-	if (ImGui::DragFloat3("Emission", &emission.x, 0.01f))
+	if (ImGui::TreeNode("Temporal Integration"))
 	{
-		emission.x = max(0.0f, emission.x);
-		emission.y = max(0.0f, emission.y);
-		emission.z = max(0.0f, emission.z);
-		m_GlobalFogStagingBuffer.Emission = emission;
-	}
+		bool useTemporal = m_VolumetricsStagingBuffer.UseTemporalReprojection;
+		if (ImGui::Checkbox("Use Temporal", &useTemporal))
+		{
+			m_VolumetricsStagingBuffer.UseTemporalReprojection = useTemporal;
+		}
+		{
+			GuiHelpers::DisableScope disable(!useTemporal);
 
-	ImGui::SliderFloat("Anisotropy", &m_GlobalFogStagingBuffer.Anisotropy, -0.99f, 0.99f);
+			ImGui::SliderFloat("Jitter Multiplier", &m_VolumetricsStagingBuffer.LightScatteringJitterMultiplier, 0.0f, 1.0f);
+			ImGui::SliderFloat("History Weight", &m_VolumetricsStagingBuffer.HistoryWeight, 0.0f, 1.0f);
+		}
 
-	ImGui::DragFloat("Fog Height", &m_GlobalFogStagingBuffer.MaxHeight, 0.01f);
-	ImGui::DragFloat("Fog Radius", &m_GlobalFogStagingBuffer.Radius, 0.01f);
-
-	ImGui::Text("Temporal Integration");
-	bool useTemporal = m_VolumetricsStagingBuffer.UseTemporalReprojection;
-	if (ImGui::Checkbox("Use Temporal", &useTemporal))
-	{
-		m_VolumetricsStagingBuffer.UseTemporalReprojection = useTemporal;
-	}
-	{
-		GuiHelpers::DisableScope disable(!useTemporal);
-
-		ImGui::SliderFloat("Jitter Multiplier", &m_VolumetricsStagingBuffer.LightScatteringJitterMultiplier, 0.0f, 1.0f);
-		ImGui::SliderFloat("History Weight", &m_VolumetricsStagingBuffer.HistoryWeight, 0.0f, 1.0f);
+		ImGui::TreePop();
 	}
 
 }

@@ -52,7 +52,7 @@ struct PassConstantBuffer
 	float TotalTime;
 	float DeltaTime;
 
-	UINT FrameIndexMod8;
+	UINT FrameIndexMod16;
 	UINT Padding;
 };
 
@@ -88,6 +88,7 @@ struct LightingConstantBuffer
 
 	// From "Stupid Spherical Harmonics (SH) Tricks"
 	XMFLOAT4 SkyIrradianceEnvironmentMap[7];
+	UINT UseSHIrradiance;
 
 	UINT PointLightCount;
 };

@@ -27,7 +27,7 @@ protected:
 
 	// Controller properties
 	float m_MoveSpeed = 3.0f;
-	float m_RotateSpeed = 0.15f;
+	float m_RotateSpeed = 0.03f;
 
 	float m_ScrollSpeed = 1.5f;
 
