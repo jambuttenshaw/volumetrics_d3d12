@@ -31,6 +31,11 @@ struct PassConstantBuffer
 	XMMATRIX ViewProj;
 	XMMATRIX InvViewProj;
 
+	// For temporal effects that use reprojection
+	XMMATRIX PrevView;
+	XMMATRIX PrevProj;
+	XMMATRIX PrevViewProj;
+
 	XMFLOAT3 WorldEyePos;
 
 	UINT Flags;
@@ -47,7 +52,8 @@ struct PassConstantBuffer
 	float TotalTime;
 	float DeltaTime;
 
-	XMFLOAT2 Padding;
+	UINT FrameIndexMod8;
+	UINT Padding;
 };
 
 // Per-object data per frame
@@ -108,9 +114,25 @@ struct MaterialGPUData
 
 struct VolumetricsConstantBuffer
 {
+	// Volume properties
 	XMUINT3 VolumeResolution;
 	float MaxVolumeDistance;	// The furthest view-space depth that the volume maps to
+
+	// Temporal reprojection
+	UINT UseTemporalReprojection;
+	float LightScatteringJitterMultiplier;
+
+	float HistoryWeight;
 };
+
+// Collection of parameters required to calculate light scattering
+struct LightScatteringConstantBuffer
+{
+	// Depth buffer dimensions (For testing froxel occlusion)
+	XMUINT2 DepthBufferDimensions;
+	XMUINT2 PrevDepthBufferDimensions;
+};
+
 
 struct GlobalFogConstantBuffer
 {

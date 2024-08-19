@@ -19,7 +19,7 @@ D3DQueue::D3DQueue(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type, const wch
 		}
 		else
 		{
-			D3D_NAME(m_CommandQueue);
+			D3D_NAME_AUTO(m_CommandQueue);
 		}
 	}
 
@@ -31,7 +31,7 @@ D3DQueue::D3DQueue(ID3D12Device* device, D3D12_COMMAND_LIST_TYPE type, const wch
 	{
 		THROW_IF_FAIL(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_Fence)));
 		THROW_IF_FAIL(m_Fence->Signal(m_LastCompletedFenceValue));
-		D3D_NAME(m_Fence);
+		D3D_NAME_AUTO(m_Fence);
 	}
 
 	// Create fence event

@@ -179,7 +179,7 @@ void D3DGraphicsContext::StartDraw(const PassConstantBuffer& passCB) const
 	// Command lists can (and must) be reset after ExecuteCommandList() is called and before it is repopulated
 	THROW_IF_FAIL(m_CommandList->Reset(m_CurrentFrameResources->GetCommandAllocator(), nullptr));
 
-	PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(2), "Begin Frame");
+	PIXBeginEvent(m_CommandList.Get(), PIX_COLOR_INDEX(m_TotalFrameCount % 8u), "Frame %d", m_TotalFrameCount);
 
 	// Indicate the back buffer will be used as a render target
 	const auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(m_RenderTargets[m_FrameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
@@ -409,7 +409,7 @@ void D3DGraphicsContext::CreateDevice()
 {
 	// Create the D3D12 Device object
 	THROW_IF_FAIL(D3D12CreateDevice(m_Adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&m_Device)));
-	D3D_NAME(m_Device);
+	D3D_NAME_AUTO(m_Device);
 
 #ifdef _DEBUG
 	// Set up the info queue for the device
@@ -480,7 +480,7 @@ void D3DGraphicsContext::CreateDescriptorHeaps()
 void D3DGraphicsContext::CreateCommandAllocator()
 {
 	THROW_IF_FAIL(m_Device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_DirectCommandAllocator)));
-	D3D_NAME(m_DirectCommandAllocator);
+	D3D_NAME_AUTO(m_DirectCommandAllocator);
 }
 
 void D3DGraphicsContext::CreateCommandList()
@@ -490,7 +490,7 @@ void D3DGraphicsContext::CreateCommandList()
 		D3D12_COMMAND_LIST_TYPE_DIRECT,
 		m_DirectCommandAllocator.Get(), nullptr,
 		IID_PPV_ARGS(&m_CommandList)));
-	D3D_NAME(m_CommandList);
+	D3D_NAME_AUTO(m_CommandList);
 }
 
 void D3DGraphicsContext::CreateRTVs()
@@ -503,7 +503,7 @@ void D3DGraphicsContext::CreateRTVs()
 	{
 		THROW_IF_FAIL(m_SwapChain->GetBuffer(n, IID_PPV_ARGS(&m_RenderTargets[n])));
 		m_Device->CreateRenderTargetView(m_RenderTargets[n].Get(), nullptr, m_RTVs.GetCPUHandle(n));
-		D3D_NAME(m_RenderTargets[n]);
+		D3D_NAME_AUTO(m_RenderTargets[n]);
 	}
 }
 
@@ -572,9 +572,9 @@ bool D3DGraphicsContext::CheckRaytracingSupport() const
 void D3DGraphicsContext::CreateRaytracingInterfaces()
 {
 	THROW_IF_FAIL(m_Device->QueryInterface(IID_PPV_ARGS(&m_DXRDevice)));
-	D3D_NAME(m_DXRDevice);
+	D3D_NAME_AUTO(m_DXRDevice);
 	THROW_IF_FAIL(m_CommandList->QueryInterface(IID_PPV_ARGS(&m_DXRCommandList)));
-	D3D_NAME(m_DXRCommandList);
+	D3D_NAME_AUTO(m_DXRCommandList);
 }
 
 
@@ -585,6 +585,8 @@ void D3DGraphicsContext::MoveToNextFrame()
 	// Change the frame resources
 	m_FrameIndex = m_SwapChain->GetCurrentBackBufferIndex();
 	m_CurrentFrameResources = m_FrameResources[m_FrameIndex].get();
+
+	m_TotalFrameCount++;
 
 	// If they are still being processed by the GPU, then wait until they are ready
 	m_DirectQueue->WaitForFenceCPUBlocking(m_CurrentFrameResources->GetFenceValue());

@@ -134,6 +134,9 @@ void D3DApplication::OnInit()
 	else
 		m_CameraController = std::make_unique<CameraController>(m_InputManager.get(), &m_Camera);
 
+	m_PrevView = m_Camera.GetViewMatrix();
+	m_PrevProj = m_Camera.GetProjectionMatrix();
+
 	InitImGui();
 
 	m_DeferredRenderer = std::make_unique<DeferredRenderer>();
@@ -154,7 +157,7 @@ void D3DApplication::OnInit()
 		config.ResourceState = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 		// This will all take a very long time...
-		auto environmentMap = m_TextureLoader->LoadTextureCubeFromFile("assets/textures/test_environment.png", &config);
+		auto environmentMap = m_TextureLoader->LoadTextureCubeFromFile("assets/textures/test_environment.png", &config, L"EnvironmentMap");
 
 		m_TextureLoader->PerformUploadsImmediatelyAndBlock();
 		m_LightManager->GetIBL()->ProcessEnvironmentMap(std::move(environmentMap));
@@ -263,6 +266,7 @@ void D3DApplication::OnRender()
 	// Copy output from deferred renderer to back buffer
 	ID3D12Resource* outputResource = m_DeferredRenderer->GetOutputResource();
 	D3D12_RESOURCE_STATES outputResourceState = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	/*
 	switch(m_GBufferDebugView)
 	{
 	case GB_DBG_Albedo:
@@ -285,6 +289,7 @@ void D3DApplication::OnRender()
 	default:
 		break;
 	}
+	*/
 	m_GraphicsContext->CopyToBackBuffer(outputResource, outputResourceState);
 
 	m_GraphicsContext->SetRenderTargetToBackBuffer(true);
@@ -355,6 +360,10 @@ void D3DApplication::UpdatePassCB()
 	m_PassCB.ViewProj = XMMatrixTranspose(viewProj);
 	m_PassCB.InvViewProj = XMMatrixTranspose(invViewProj);
 
+	m_PassCB.PrevView = XMMatrixTranspose(m_PrevView);
+	m_PassCB.PrevProj = XMMatrixTranspose(m_PrevProj);
+	m_PassCB.PrevViewProj = XMMatrixTranspose(XMMatrixMultiply(m_PrevView, m_PrevProj));
+
 	m_PassCB.WorldEyePos = m_Camera.GetPosition();
 
 	m_PassCB.RTSize = XMUINT2(m_Width, m_Height);
@@ -375,6 +384,12 @@ void D3DApplication::UpdatePassCB()
 
 	m_PassCB.TotalTime = m_Timer.GetTimeSinceReset();
 	m_PassCB.DeltaTime = m_Timer.GetDeltaTime();
+
+	m_PassCB.FrameIndexMod8 = static_cast<UINT>(m_GraphicsContext->GetTotalFrameCount() % 8);
+
+	// Set the previous view and proj to the new view and proj
+	m_PrevView = view;
+	m_PrevProj = proj;
 }
 
 

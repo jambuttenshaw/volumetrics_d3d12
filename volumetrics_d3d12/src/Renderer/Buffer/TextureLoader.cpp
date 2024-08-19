@@ -29,7 +29,7 @@ TextureLoader::~TextureLoader()
 }
 
 
-std::unique_ptr<Texture> TextureLoader::LoadTextureFromFile(const std::string& filename, const LoadTextureConfig* const config)
+std::unique_ptr<Texture> TextureLoader::LoadTextureFromFile(const std::string& filename, const LoadTextureConfig* const config, const wchar_t* resourceName)
 {
 	int width, height, channels;
 
@@ -49,7 +49,7 @@ std::unique_ptr<Texture> TextureLoader::LoadTextureFromFile(const std::string& f
 	);
 
 	// Set resource to be copied into
-	std::unique_ptr<Texture> tex = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_COPY_DEST);
+	std::unique_ptr<Texture> tex = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_COPY_DEST, resourceName);
 
 	// Create an upload job
 	m_UploadJobs.push({});
@@ -66,7 +66,7 @@ std::unique_ptr<Texture> TextureLoader::LoadTextureFromFile(const std::string& f
 }
 
 
-std::unique_ptr<Texture> TextureLoader::LoadTextureCubeFromFile(const std::string& filename, const LoadTextureConfig* const config)
+std::unique_ptr<Texture> TextureLoader::LoadTextureCubeFromFile(const std::string& filename, const LoadTextureConfig* const config, const wchar_t* resourceName)
 {
 	int width, height, channels;
 
@@ -90,7 +90,7 @@ std::unique_ptr<Texture> TextureLoader::LoadTextureCubeFromFile(const std::strin
 	);
 
 	// Set resource to be copied into
-	std::unique_ptr<Texture> tex = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_COPY_DEST);
+	std::unique_ptr<Texture> tex = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_COPY_DEST, resourceName);
 
 	// Create an upload job
 	m_UploadJobs.push({});

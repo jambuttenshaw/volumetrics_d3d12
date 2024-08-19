@@ -12,12 +12,12 @@ ConstantBuffer<PassConstantBuffer> g_PassCB : register(b0);
 ConstantBuffer<VolumetricsConstantBuffer> g_VolumeCB : register(b1);
 
 
-Texture3D<float4> g_LightScatteringVolume : register(t0);
+Texture3D<float4> g_IntegratedVolume : register(t0);
 
 Texture2D<float> g_DepthBuffer : register(t1);
 
 
-SamplerState g_LightScatteringSampler : register(s0);
+SamplerState g_IntegratedVolumeSampler : register(s0);
 
 
 RWTexture2D<float4> g_Output : register(u0);
@@ -45,7 +45,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 	const float3 positionInVolume = float3(uv, volumeZ);
 
-	float4 scatteringAndTransmittance = g_LightScatteringVolume.SampleLevel(g_LightScatteringSampler, positionInVolume, 0);
+	float4 scatteringAndTransmittance = g_IntegratedVolume.SampleLevel(g_IntegratedVolumeSampler, positionInVolume, 0);
 	g_Output[DTid.xy] = float4(pixelWithoutFog * scatteringAndTransmittance.www + scatteringAndTransmittance.xyz, 1.0f);
 }
 

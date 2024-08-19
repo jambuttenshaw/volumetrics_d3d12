@@ -29,7 +29,8 @@ class DeferredRenderer
 		GB_SRV_Albedo = 0,
 		GB_SRV_Normal,
 		GB_SRV_RoughnessMetalness,
-		GB_SRV_Depth,
+		GB_SRV_Depth0,
+		GB_SRV_Depth1,
 		GB_SRV_MAX
 	};
 
@@ -48,14 +49,23 @@ public:
 	// Rendering
 
 	// Perform g buffer population pass
-	void Render() const;
+	void Render();
 
 	ID3D12Resource* GetOutputResource() const { return m_OutputResource.GetResource(); }
 	ID3D12Resource* GetGBufferResource(UINT index) const { return m_RenderTargets.at(index).GetResource(); }
-	ID3D12Resource* GetDepthBufferResource() const { return m_DepthBuffer.GetResource(); }
+
+	ID3D12Resource* GetCurrentDepthBufferResource() const { return m_DepthBuffers.at(m_CurrentDepthBuffer).GetResource(); }
+	ID3D12Resource* GetPreviousDepthBufferResource() const { return m_DepthBuffers.at(1 - m_CurrentDepthBuffer).GetResource(); }
 
 
 	void DrawGui();
+
+private:
+	inline Texture& GetCurrentDepthBuffer() { return m_DepthBuffers.at(m_CurrentDepthBuffer); }
+	inline Texture& GetPreviousDepthBuffer() { return m_DepthBuffers.at(1 - m_CurrentDepthBuffer); }
+
+	inline D3D12_GPU_DESCRIPTOR_HANDLE GetCurrentDepthBufferSRV() const { return m_SRVs.GetGPUHandle(GB_SRV_Depth0 + m_CurrentDepthBuffer); }
+	inline D3D12_GPU_DESCRIPTOR_HANDLE GetPreviousDepthBufferSRV() const { return m_SRVs.GetGPUHandle(GB_SRV_Depth0 + (1 - m_CurrentDepthBuffer)); }
 
 private:
 	void CreatePipelines();
@@ -86,11 +96,19 @@ private:
 	const MaterialManager* m_MaterialManager = nullptr;
 
 	std::unique_ptr<VolumetricRendering> m_VolumeRenderer;
+	bool m_UseVolumetrics = true;
 
 	// G-buffer resources
 	// The deferred renderer owns:
 	// - a collection of render targets for various purposes
 	// - a depth buffer
+
+	UINT m_GBufferWidth;
+	UINT m_GBufferHeight;
+
+	// Previous frame dimensions
+	UINT m_PrevGBufferWidth;
+	UINT m_PrevGBufferHeight;
 
 	constexpr inline static UINT64 s_RTCount = 3; // The number of RTs in the gbuffer
 	std::array<DXGI_FORMAT, s_RTCount> m_RTFormats = {
@@ -103,12 +121,16 @@ private:
 
 	// Resources
 	std::array<Texture, s_RTCount> m_RenderTargets;
-	Texture m_DepthBuffer;
+
+	constexpr inline static UINT64 s_DepthBufferCount = 2;
+	std::array<Texture, s_DepthBufferCount> m_DepthBuffers;
+	UINT m_CurrentDepthBuffer = 0;
+
 	// A texture to hold the output of the lighting pass
 	Texture m_OutputResource;
 
 	DescriptorAllocation m_RTVs;
-	DescriptorAllocation m_DSV;
+	DescriptorAllocation m_DSVs;
 	DescriptorAllocation m_SRVs;
 
 	// Output resource

@@ -2,6 +2,7 @@
 #include "DeferredRenderer.h"
 
 #include "D3DGraphicsContext.h"
+#include "imgui.h"
 
 #include "Application/Scene.h"
 
@@ -10,6 +11,7 @@
 #include "Lighting/Material.h"
 
 #include "pix3.h"
+#include "Framework/GuiHelpers.h"
 #include "Lighting/ShadowMap.h"
 
 
@@ -53,6 +55,7 @@ namespace LightingPassRootSignature
 	{
 		PassConstantBuffer = 0,
 		GBuffer,				// GBuffer SRVs are sequential
+		DepthBuffer,
 		LightingConstantBuffer,	// Constant buffer with universal lighting parameters
 		PointLightBuffer,		// A buffer of all point lights in the scene
 		EnvironmentMaps,		// Environment maps are sequential
@@ -102,13 +105,16 @@ DeferredRenderer::DeferredRenderer()
 {
 	CreatePipelines();
 	CreateResolutionDependentResources();
+
+	m_PrevGBufferWidth = m_GBufferWidth;
+	m_PrevGBufferHeight = m_GBufferHeight;
 }
 
 DeferredRenderer::~DeferredRenderer()
 {
 	// Free descriptors
 	m_RTVs.Free();
-	m_DSV.Free();
+	m_DSVs.Free();
 	m_SRVs.Free();
 
 	m_OutputUAV.Free();
@@ -127,7 +133,7 @@ void DeferredRenderer::SetScene(const Scene& scene, LightManager& lightManager, 
 void DeferredRenderer::OnBackBufferResize()
 {
 	m_RTVs.Free();
-	m_DSV.Free();
+	m_DSVs.Free();
 	m_SRVs.Free();
 
 	m_OutputUAV.Free();
@@ -211,7 +217,7 @@ void DeferredRenderer::CreatePipelines()
 
 		psoDesc.DSVFormat = ShadowMap::GetDSVFormat();
 
-		psoDesc.RasterizerDesc.DepthBias = 100000;
+		psoDesc.RasterizerDesc.DepthBias = 10'000;
 		psoDesc.RasterizerDesc.DepthBiasClamp = 0.01f;
 		psoDesc.RasterizerDesc.SlopeScaledDepthBias = 2.5f;
 
@@ -265,38 +271,42 @@ void DeferredRenderer::CreatePipelines()
 	{
 		D3DComputePipelineDesc psoDesc = {};
 
-		CD3DX12_DESCRIPTOR_RANGE1 ranges[6];
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[7];
 
 		// All descriptors in the g-buffer are contiguous
 		// There will be one for each render target plus the depth buffer
-		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, s_RTCount + 1, 0, 0);
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, s_RTCount, 0, 0);
+
+		// Depth buffer
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3, 0);
 
 		// Environment lighting descriptors
-		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 1);
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 1);
 
 		// Environment samplers
-		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0, 0);
+		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0, 0);
 
 		// Shadow map
-		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2);
+		ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 2);
 
-		ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 2, 0);
+		ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 2, 0);
 
 		// Output UAV
-		ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
+		ranges[6].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0);
 
 
 		// Set up root parameters
 		CD3DX12_ROOT_PARAMETER1 rootParameters[LightingPassRootSignature::Count];
 		rootParameters[LightingPassRootSignature::PassConstantBuffer].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_NONE);
 		rootParameters[LightingPassRootSignature::GBuffer].InitAsDescriptorTable(1, &ranges[0]);
+		rootParameters[LightingPassRootSignature::DepthBuffer].InitAsDescriptorTable(1, &ranges[1]);
 		rootParameters[LightingPassRootSignature::LightingConstantBuffer].InitAsConstantBufferView(1, 0);
 		rootParameters[LightingPassRootSignature::PointLightBuffer].InitAsShaderResourceView(4, 0);
-		rootParameters[LightingPassRootSignature::EnvironmentMaps].InitAsDescriptorTable(1, &ranges[1]);
-		rootParameters[LightingPassRootSignature::EnvironmentSamplers].InitAsDescriptorTable(1, &ranges[2]);
-		rootParameters[LightingPassRootSignature::SunShadowMap].InitAsDescriptorTable(1, &ranges[3]);
-		rootParameters[LightingPassRootSignature::ShadowMapSampler].InitAsDescriptorTable(1, &ranges[4]);
-		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[5]);
+		rootParameters[LightingPassRootSignature::EnvironmentMaps].InitAsDescriptorTable(1, &ranges[2]);
+		rootParameters[LightingPassRootSignature::EnvironmentSamplers].InitAsDescriptorTable(1, &ranges[3]);
+		rootParameters[LightingPassRootSignature::SunShadowMap].InitAsDescriptorTable(1, &ranges[4]);
+		rootParameters[LightingPassRootSignature::ShadowMapSampler].InitAsDescriptorTable(1, &ranges[5]);
+		rootParameters[LightingPassRootSignature::OutputResource].InitAsDescriptorTable(1, &ranges[6]);
 
 		psoDesc.NumRootParameters = LightingPassRootSignature::Count;
 		psoDesc.RootParameters = rootParameters;
@@ -390,14 +400,17 @@ void DeferredRenderer::CreateResolutionDependentResources()
 {
 	const auto device = g_D3DGraphicsContext->GetDevice();
 
+	m_GBufferWidth = g_D3DGraphicsContext->GetClientWidth();
+	m_GBufferHeight = g_D3DGraphicsContext->GetClientHeight();
+
 	// Allocate render targets
 	D3D12_RESOURCE_DESC desc;
 	D3D12_CLEAR_VALUE clearValue;
 
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	desc.Alignment = 0;
-	desc.Width = g_D3DGraphicsContext->GetClientWidth();
-	desc.Height = g_D3DGraphicsContext->GetClientHeight();
+	desc.Width = m_GBufferWidth;
+	desc.Height = m_GBufferHeight;
 	desc.DepthOrArraySize = 1;
 	desc.MipLevels = 1;
 	desc.SampleDesc.Count = 1;
@@ -414,7 +427,7 @@ void DeferredRenderer::CreateResolutionDependentResources()
 	{
 		desc.Format = m_RTFormats[rt];
 		clearValue.Format = m_RTFormats[rt];
-		m_RenderTargets[rt].Allocate(&desc, D3D12_RESOURCE_STATE_RENDER_TARGET, &clearValue);
+		m_RenderTargets[rt].Allocate(&desc, D3D12_RESOURCE_STATE_RENDER_TARGET, CREATE_INDEXED_NAME(L"GBuffer", rt), &clearValue);
 	}
 
 	// Allocate depth buffer
@@ -425,12 +438,16 @@ void DeferredRenderer::CreateResolutionDependentResources()
 	clearValue.DepthStencil.Depth = 1.0f;
 	clearValue.DepthStencil.Stencil = 0;
 
-	m_DepthBuffer.Allocate(&desc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue);
+	{
+		UINT i = 0;
+		for (auto& depthBuffer : m_DepthBuffers)
+			depthBuffer.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, CREATE_INDEXED_NAME(L"DepthBuffer", i++), &clearValue);
+	}
 
 	// Allocate output resource
 	desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	desc.Format = m_OutputFormat;
-	m_OutputResource.Allocate(&desc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	m_OutputResource.Allocate(&desc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, L"DeferredOutput");
 
 	// Create RTVs and DSVs
 	m_RTVs = g_D3DGraphicsContext->GetRTVHeap()->Allocate(s_RTCount);
@@ -455,9 +472,10 @@ void DeferredRenderer::CreateResolutionDependentResources()
 		device->CreateRenderTargetView(m_OutputResource.GetResource(), &rtvDesc, m_OutputRTV.GetCPUHandle());
 	}
 
-	m_DSV = g_D3DGraphicsContext->GetDSVHeap()->Allocate(1);
-	ASSERT(m_DSV.IsValid(), "Failed to alloc!");
+	m_DSVs = g_D3DGraphicsContext->GetDSVHeap()->Allocate(static_cast<UINT>(m_DepthBuffers.size()));
+	ASSERT(m_DSVs.IsValid(), "Failed to alloc!");
 
+	for (UINT i = 0; i < static_cast<UINT>(m_DepthBuffers.size()); i++)
 	{
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc = {};
 		dsvDesc.Format = m_DSVFormat;
@@ -465,11 +483,11 @@ void DeferredRenderer::CreateResolutionDependentResources()
 		dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
 		dsvDesc.Texture2D.MipSlice = 0;
 
-		device->CreateDepthStencilView(m_DepthBuffer.GetResource(), &dsvDesc, m_DSV.GetCPUHandle());
+		device->CreateDepthStencilView(m_DepthBuffers.at(i).GetResource(), &dsvDesc, m_DSVs.GetCPUHandle(i));
 	}
 
 	// Create SRVs
-	m_SRVs = g_D3DGraphicsContext->GetSRVHeap()->Allocate(s_RTCount + 1);
+	m_SRVs = g_D3DGraphicsContext->GetSRVHeap()->Allocate(GB_SRV_MAX);
 	ASSERT(m_SRVs.IsValid(), "Failed to alloc!");
 
 	{
@@ -489,7 +507,8 @@ void DeferredRenderer::CreateResolutionDependentResources()
 		}
 
 		srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
-		device->CreateShaderResourceView(m_DepthBuffer.GetResource(), &srvDesc, m_SRVs.GetCPUHandle(GB_SRV_Depth));
+		device->CreateShaderResourceView(m_DepthBuffers.at(0).GetResource(), &srvDesc, m_SRVs.GetCPUHandle(GB_SRV_Depth0));
+		device->CreateShaderResourceView(m_DepthBuffers.at(1).GetResource(), &srvDesc, m_SRVs.GetCPUHandle(GB_SRV_Depth1));
 	}
 
 	// Allocate UAV
@@ -507,7 +526,7 @@ void DeferredRenderer::CreateResolutionDependentResources()
 }
 
 
-void DeferredRenderer::Render() const
+void DeferredRenderer::Render()
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
 
@@ -517,11 +536,20 @@ void DeferredRenderer::Render() const
 		commandList->ResourceBarrier(static_cast<UINT>(barriers.size()), barriers.data());
 		barriers.clear();
 	};
+	auto AddTransition = [&](const auto& resource, auto before, auto after)
+	{
+		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(resource.GetResource(), before, after));
+	};
 
 	// Render shadow maps first
 	RenderShadowMaps();
 
 	g_D3DGraphicsContext->RestoreDefaultViewport();
+
+	{
+		AddTransition(GetCurrentDepthBuffer(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+		FlushBarriers();
+	}
 
 	// Then render geometry pass
 	ClearGBuffer();
@@ -531,9 +559,7 @@ void DeferredRenderer::Render() const
 	// After copying to the back-buffer, the output resource will be returned to unordered access state
 	// It needs to be transitioned to a render target
 	{
-		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.GetResource(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_RENDER_TARGET));
+		AddTransition(m_OutputResource, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		FlushBarriers();
 	}
 
@@ -544,18 +570,11 @@ void DeferredRenderer::Render() const
 		// Switch render targets
 		for (UINT rt = 0; rt < s_RTCount; rt++)
 		{
-			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-				m_RenderTargets.at(rt).GetResource(),
-				D3D12_RESOURCE_STATE_RENDER_TARGET,
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+			AddTransition(m_RenderTargets.at(rt), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		}
-		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-			m_DepthBuffer.GetResource(),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(m_OutputResource.GetResource(),
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+		AddTransition(GetCurrentDepthBuffer(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		AddTransition(m_OutputResource, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
 		FlushBarriers();
 	}
 
@@ -567,21 +586,17 @@ void DeferredRenderer::Render() const
 		CreateESM();
 	}
 
-	RenderVolumetrics();
+	if (m_UseVolumetrics)
+	{
+		RenderVolumetrics();
+	}
 
 	// Switch resource states back
 	{
 		for (UINT rt = 0; rt < s_RTCount; rt++)
 		{
-			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-				m_RenderTargets.at(rt).GetResource(),
-				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-				D3D12_RESOURCE_STATE_RENDER_TARGET));
+			AddTransition(m_RenderTargets.at(rt), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
 		}
-		barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-			m_DepthBuffer.GetResource(),
-			D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE));
 		FlushBarriers();
 	}
 
@@ -596,6 +611,13 @@ void DeferredRenderer::Render() const
 
 	barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(m_OutputResource.GetResource()));
 	FlushBarriers();
+
+	// Update previous dimensions to current dimensions
+	m_PrevGBufferWidth = m_GBufferWidth;
+	m_PrevGBufferHeight = m_GBufferHeight;
+
+	// Switch depth buffers
+	m_CurrentDepthBuffer = 1 - m_CurrentDepthBuffer;
 }
 
 
@@ -716,7 +738,7 @@ void DeferredRenderer::ClearGBuffer() const
 		constexpr XMFLOAT4 clearColor = { 0.0f, 0.0f, 0.0f, 0.0f };
 		commandList->ClearRenderTargetView(m_RTVs.GetCPUHandle(rt), &clearColor.x, 0, nullptr);
 	}
-	commandList->ClearDepthStencilView(m_DSV.GetCPUHandle(), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
+	commandList->ClearDepthStencilView(m_DSVs.GetCPUHandle(m_CurrentDepthBuffer), D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 	PIXEndEvent(commandList);
 }
@@ -729,7 +751,7 @@ void DeferredRenderer::GeometryPass() const
 
 	// Assign render targets and depth buffer
 	const auto firstRTV = m_RTVs.GetCPUHandle();
-	const auto dsv = m_DSV.GetCPUHandle();
+	const auto dsv = m_DSVs.GetCPUHandle(m_CurrentDepthBuffer);
 	commandList->OMSetRenderTargets(s_RTCount, &firstRTV, true, &dsv);
 
 	// Perform drawing into g-buffer
@@ -752,7 +774,7 @@ void DeferredRenderer::RenderSkybox() const
 
 	// Assign render targets and depth buffer
 	const auto rtv = m_OutputRTV.GetCPUHandle();
-	const auto dsv = m_DSV.GetCPUHandle();
+	const auto dsv = m_DSVs.GetCPUHandle(m_CurrentDepthBuffer);
 	commandList->OMSetRenderTargets(1, &rtv, true, &dsv);
 
 	// Bind pipeline state
@@ -789,6 +811,7 @@ void DeferredRenderer::LightingPass() const
 	// Set root arguments
 	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::GBuffer, m_SRVs.GetGPUHandle());
+	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::DepthBuffer, GetCurrentDepthBufferSRV());
 	commandList->SetComputeRootConstantBufferView(LightingPassRootSignature::LightingConstantBuffer, m_LightManager->GetLightingConstantBuffer());
 	commandList->SetComputeRootShaderResourceView(LightingPassRootSignature::PointLightBuffer, m_LightManager->GetPointLightBuffer());
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::EnvironmentMaps, ibl->GetSRVTable());
@@ -798,11 +821,9 @@ void DeferredRenderer::LightingPass() const
 	commandList->SetComputeRootDescriptorTable(LightingPassRootSignature::OutputResource, m_OutputUAV.GetGPUHandle());
 
 	// Dispatch lighting pass
-	const UINT clientWidth = g_D3DGraphicsContext->GetClientWidth();
-	const UINT clientHeight = g_D3DGraphicsContext->GetClientHeight();
 	// Uses 8 threads per group (fast ceiling of integer division)
-	const UINT threadGroupX = (clientWidth + 7) / 8;
-	const UINT threadGroupY = (clientHeight + 7) / 8;
+	const UINT threadGroupX = (m_GBufferWidth + 7) / 8;
+	const UINT threadGroupY = (m_GBufferHeight + 7) / 8;
 
 	commandList->Dispatch(threadGroupX, threadGroupY, 1);
 
@@ -817,14 +838,28 @@ void DeferredRenderer::RenderVolumetrics() const
 	PIXBeginEvent(commandList, PIX_COLOR_INDEX(11), "Render Volumetrics");
 
 	// Perform volume rendering
-	m_VolumeRenderer->RenderVolumetrics();
-	const VolumetricRendering::ApplyVolumetricsParams params
 	{
-		.OutputUAV = m_OutputUAV.GetGPUHandle(),
-		.DepthBufferSRV = m_SRVs.GetGPUHandle(GB_SRV_Depth),
-		.OutputResolution = { g_D3DGraphicsContext->GetClientWidth(), g_D3DGraphicsContext->GetClientHeight() }
-	};
-	m_VolumeRenderer->ApplyVolumetrics(params);
+		
+		const VolumetricRendering::RenderVolumetricsParams params
+		{
+			.DepthBuffer = GetCurrentDepthBufferSRV(),
+			.DepthBufferDimensions = { m_GBufferWidth, m_GBufferHeight },
+			.PreviousDepthBuffer = GetPreviousDepthBufferSRV(),
+			.PreviousDepthBufferDimensions = { m_PrevGBufferWidth, m_PrevGBufferHeight }
+		};
+		m_VolumeRenderer->RenderVolumetrics(params);
+	}
+
+	// Apply volumetric rendering
+	{
+		const VolumetricRendering::ApplyVolumetricsParams params
+		{
+			.OutputUAV = m_OutputUAV.GetGPUHandle(),
+			.DepthBufferSRV = GetCurrentDepthBufferSRV(),
+			.OutputResolution = { m_GBufferWidth, m_GBufferHeight }
+		};
+		m_VolumeRenderer->ApplyVolumetrics(params);
+	}
 
 	const auto barrier = CD3DX12_RESOURCE_BARRIER::UAV(m_OutputResource.GetResource());
 	commandList->ResourceBarrier(1, &barrier);
@@ -885,5 +920,11 @@ void DeferredRenderer::DrawAllGeometry(ID3D12GraphicsCommandList* commandList, U
 
 void DeferredRenderer::DrawGui()
 {
-	m_VolumeRenderer->DrawGui();
+	ImGui::Text("Renderer");
+
+	{
+		ImGui::Checkbox("Use Volumetrics", &m_UseVolumetrics);
+		GuiHelpers::DisableScope disable(!m_UseVolumetrics);
+		m_VolumeRenderer->DrawGui();
+	}
 }

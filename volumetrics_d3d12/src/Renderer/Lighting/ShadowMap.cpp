@@ -27,7 +27,7 @@ void ShadowMap::CreateShadowMap(UINT width, UINT height, UINT arraySize)
 	clearValue.DepthStencil.Depth = 1.0f;
 	clearValue.DepthStencil.Stencil = 0;
 
-	m_Texture.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, &clearValue);
+	m_Texture.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"Shadow Map", &clearValue);
 
 
 	// Create DSV

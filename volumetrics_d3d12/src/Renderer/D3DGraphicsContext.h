@@ -78,7 +78,9 @@ public:
 
 	inline static constexpr UINT GetBackBufferCount() { return s_FrameCount; }
 	inline DXGI_FORMAT GetBackBufferFormat() const { return m_BackBufferFormat; }
+
 	inline UINT GetCurrentBackBuffer() const { return m_FrameIndex; }
+	inline UINT64 GetTotalFrameCount() const { return m_TotalFrameCount; }
 
 	inline UINT GetClientWidth() const { return m_ClientWidth; }
 	inline UINT GetClientHeight() const { return m_ClientHeight; }
@@ -138,6 +140,7 @@ private:
 
 private:
 	static constexpr UINT s_FrameCount = 2;
+	UINT64 m_TotalFrameCount = 0;
 
 	// Context properties
 	HWND m_WindowHandle;

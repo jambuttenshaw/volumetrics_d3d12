@@ -22,7 +22,7 @@ void ExponentialShadowMap::CreateExponentialShadowMap(const ShadowMap& shadowMap
 
 	for (auto& texture : m_Textures)
 	{
-		texture.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		texture.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"Exponential Shadow Map");
 	}
 
 	// Create descriptors

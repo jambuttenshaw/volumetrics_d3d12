@@ -10,7 +10,9 @@
 ConstantBuffer<PassConstantBuffer> g_PassCB : register(b0);
 ConstantBuffer<VolumetricsConstantBuffer> g_VolumeCB : register(b1);
 
-RWTexture3D<float4> g_LightScatteringVolume : register(u0);
+Texture3D<float4> g_LightScatteringVolume : register(t0);
+
+RWTexture3D<float4> g_IntegratedVolume: register(u0);
 
 
 [numthreads(8, 8, 1)]
@@ -40,7 +42,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 
 		accumulatedTransmittance *= transmittance;
 
-		g_LightScatteringVolume[layerCoordinate] = float4(accumulatedLighting, accumulatedTransmittance);
+		g_IntegratedVolume[layerCoordinate] = float4(accumulatedLighting, accumulatedTransmittance);
 	}
 }
 

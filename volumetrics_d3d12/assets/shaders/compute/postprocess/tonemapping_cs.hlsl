@@ -20,7 +20,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	float3 color = g_OutputResource[DTid.xy].rgb;
 
 	// Tone mapping
-	color = color / (1.0f + color);
+	//color = color / (1.0f + color);
 	// Gamma correction
 	color = pow(color, 0.4545f);
 

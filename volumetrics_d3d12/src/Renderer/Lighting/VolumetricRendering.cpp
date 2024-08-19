@@ -7,6 +7,7 @@
 
 #include "LightManager.h"
 #include "IBL.h"
+#include "Framework/GuiHelpers.h"
 #include "Renderer/D3DGraphicsContext.h"
 
 
@@ -29,11 +30,21 @@ namespace LightScatteringRootSignature
 		PassConstantBuffer = 0,
 		LightConstantBuffer,
 		VolumeConstantBuffer,
+		LightScatteringConstantBuffer,
+
 		VBuffer,
 		PointLightBuffer,
-		SunESM,
-		ShadowSampler,
+		SunSM,
+		SceneDepth,
+
+		ShadowSamplers,
+
 		LightScatteringVolume,
+
+		// Resources for temporal integration
+		PreviousLightScatteringVolume,
+		PreviousSceneDepth,
+
 		Count
 	};
 }
@@ -45,6 +56,7 @@ namespace VolumeIntegrationRootSignature
 		PassConstantBuffer = 0,
 		VolumeConstantBuffer,
 		LightScatteringVolume,
+		IntegratedVolume,
 		Count
 	};
 }
@@ -55,9 +67,9 @@ namespace ApplyVolumetricsRootSignature
 	{
 		PassConstantBuffer = 0,
 		VolumeConstantBuffer,
-		LightScatteringVolume,
+		IntegratedVolume,
 		DepthBuffer,
-		LightScatteringVolumeSampler,
+		IntegratedVolumeSampler,
 		Output,
 		Count
 	};
@@ -82,13 +94,26 @@ VolumetricRendering::VolumetricRendering(LightManager& lightManager)
 	CreateResources();
 	CreatePipelines();
 
-	m_GlobalFogStagingBuffer.Albedo = XMFLOAT3(1.5f, 1.5f, 1.5f);
-	m_GlobalFogStagingBuffer.Extinction = 0.25f;
+	m_VolumetricsStagingBuffer =
+	{
+		.VolumeResolution = m_VolumeResolution,
+		.MaxVolumeDistance = 50.0f,
 
-	m_GlobalFogStagingBuffer.MaxHeight = 5.0f;
-	m_GlobalFogStagingBuffer.HeightSmoothing = 3.0f;
-	m_GlobalFogStagingBuffer.Radius = 5.0f;
-	m_GlobalFogStagingBuffer.RadiusSmoothing = 3.0f;
+		.UseTemporalReprojection = 1,
+		.LightScatteringJitterMultiplier = 1.0f,
+		.HistoryWeight = 0.9f
+	};
+
+	m_GlobalFogStagingBuffer = 
+	{
+		.Albedo = XMFLOAT3(1.5f, 1.5f, 1.5f),
+		.Extinction = 0.25f,
+
+		.MaxHeight = 5.0f,
+		.HeightSmoothing = 3.0f,
+		.Radius = 5.0f,
+		.RadiusSmoothing = 3.0f
+	};
 }
 
 VolumetricRendering::~VolumetricRendering()
@@ -112,10 +137,13 @@ void VolumetricRendering::CreateResources()
 			1,
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
-		m_VBufferA.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		m_VBufferB.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_VBufferA.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"VBufferA");
+		m_VBufferB.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"VBufferB");
 
-		m_LightScatteringVolume.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_LightScatteringVolumes.at(0).Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, CREATE_INDEXED_NAME(L"LSV", 0));
+		m_LightScatteringVolumes.at(1).Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, CREATE_INDEXED_NAME(L"LSV", 1));
+
+		m_IntegratedVolume.Allocate(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"Integrated Volume");
 	}
 
 
@@ -139,7 +167,9 @@ void VolumetricRendering::CreateResources()
 
 		CreateSRV(m_VBufferA, SRV_VBufferA);
 		CreateSRV(m_VBufferB, SRV_VBufferB);
-		CreateSRV(m_LightScatteringVolume, SRV_LightScatteringVolume);
+		CreateSRV(m_LightScatteringVolumes.at(0), SRV_LightScatteringVolume0);
+		CreateSRV(m_LightScatteringVolumes.at(1), SRV_LightScatteringVolume1);
+		CreateSRV(m_IntegratedVolume, SRV_IntegratedVolume);
 	}
 
 	{
@@ -157,19 +187,14 @@ void VolumetricRendering::CreateResources()
 
 		CreateUAV(m_VBufferA, UAV_VBufferA);
 		CreateUAV(m_VBufferB, UAV_VBufferB);
-		CreateUAV(m_LightScatteringVolume, UAV_LightScatteringVolume);
+		CreateUAV(m_LightScatteringVolumes.at(0), UAV_LightScatteringVolume0);
+		CreateUAV(m_LightScatteringVolumes.at(1), UAV_LightScatteringVolume1);
+		CreateUAV(m_IntegratedVolume, UAV_IntegratedVolume);
 	}
 
 
 	// Create constant buffer
-	m_VolumeConstantBuffer.Allocate(device, 1, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Volume Constant Buffer");
-	VolumetricsConstantBuffer cb
-	{
-		.VolumeResolution = m_VolumeResolution,
-		.MaxVolumeDistance = m_MaxVolumeDistance
-	};
-	m_VolumeConstantBuffer.CopyElement(0, cb);
-
+	m_VolumeConstantBuffer.Allocate(device, D3DGraphicsContext::GetBackBufferCount(), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Volume Constant Buffer");
 	m_GlobalFogConstantBuffer.Allocate(device, D3DGraphicsContext::GetBackBufferCount(), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Global Fog Constant Buffer");
 
 
@@ -219,40 +244,58 @@ void VolumetricRendering::CreatePipelines()
 	}
 
 	{
-		CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
-		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0);
-		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
-		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0);
-		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[7];
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0); // VBuffer
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3); // Sun SM
+		ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4); // Scene depth
+		ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 2, 0); // Shadow samplers
+		ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0); // Light scattering volume
+		ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 1); // Previous light scattering volume
+		ranges[6].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1, 1); // Previous scene depth
 
 		CD3DX12_ROOT_PARAMETER1 rootParams[LightScatteringRootSignature::Count];
+
 		rootParams[LightScatteringRootSignature::PassConstantBuffer].InitAsConstantBufferView(0);
 		rootParams[LightScatteringRootSignature::LightConstantBuffer].InitAsConstantBufferView(1);
 		rootParams[LightScatteringRootSignature::VolumeConstantBuffer].InitAsConstantBufferView(2);
+		rootParams[LightScatteringRootSignature::LightScatteringConstantBuffer].InitAsConstants(SizeOfInUint32(LightScatteringConstantBuffer), 3);
+
 		rootParams[LightScatteringRootSignature::VBuffer].InitAsDescriptorTable(1, &ranges[0]);
 		rootParams[LightScatteringRootSignature::PointLightBuffer].InitAsShaderResourceView(2);
-		rootParams[LightScatteringRootSignature::SunESM].InitAsDescriptorTable(1, &ranges[1]);
-		rootParams[LightScatteringRootSignature::ShadowSampler].InitAsDescriptorTable(1, &ranges[2]);
-		rootParams[LightScatteringRootSignature::LightScatteringVolume].InitAsDescriptorTable(1, &ranges[3]);
+		rootParams[LightScatteringRootSignature::SunSM].InitAsDescriptorTable(1, &ranges[1]);
+		rootParams[LightScatteringRootSignature::SceneDepth].InitAsDescriptorTable(1, &ranges[2]);
+
+		rootParams[LightScatteringRootSignature::ShadowSamplers].InitAsDescriptorTable(1, &ranges[3]);
+
+		rootParams[LightScatteringRootSignature::LightScatteringVolume].InitAsDescriptorTable(1, &ranges[4]);
+
+		rootParams[LightScatteringRootSignature::PreviousLightScatteringVolume].InitAsDescriptorTable(1, &ranges[5]);
+		rootParams[LightScatteringRootSignature::PreviousSceneDepth].InitAsDescriptorTable(1, &ranges[6]);
+
+		auto sampler = CD3DX12_STATIC_SAMPLER_DESC(0, D3D12_FILTER_MIN_MAG_MIP_LINEAR, D3D12_TEXTURE_ADDRESS_MODE_CLAMP, D3D12_TEXTURE_ADDRESS_MODE_CLAMP);
+		sampler.RegisterSpace = 1;
 
 		D3DComputePipelineDesc psoDesc = {
 			.NumRootParameters = ARRAYSIZE(rootParams),
 			.RootParameters = rootParams,
 			.Shader = L"assets/shaders/compute/volumetrics/light_scattering_cs.hlsl",
-			.EntryPoint = L"main"
+			.EntryPoint = L"main",
+			.StaticSamplers{ sampler }
 		};
 
 		m_LightScatteringPipeline.Create(&psoDesc);
 	}
 
 	{
-		CD3DX12_DESCRIPTOR_RANGE1 ranges[1];
-		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
 
 		CD3DX12_ROOT_PARAMETER1 rootParams[VolumeIntegrationRootSignature::Count];
 		rootParams[VolumeIntegrationRootSignature::PassConstantBuffer].InitAsConstantBufferView(0);
 		rootParams[VolumeIntegrationRootSignature::VolumeConstantBuffer].InitAsConstantBufferView(1);
 		rootParams[VolumeIntegrationRootSignature::LightScatteringVolume].InitAsDescriptorTable(1, &ranges[0]);
+		rootParams[VolumeIntegrationRootSignature::IntegratedVolume].InitAsDescriptorTable(1, &ranges[1]);
 
 		D3DComputePipelineDesc psoDesc = {
 			.NumRootParameters = ARRAYSIZE(rootParams),
@@ -274,9 +317,9 @@ void VolumetricRendering::CreatePipelines()
 		CD3DX12_ROOT_PARAMETER1 rootParams[ApplyVolumetricsRootSignature::Count];
 		rootParams[ApplyVolumetricsRootSignature::PassConstantBuffer].InitAsConstantBufferView(0);
 		rootParams[ApplyVolumetricsRootSignature::VolumeConstantBuffer].InitAsConstantBufferView(1);
-		rootParams[ApplyVolumetricsRootSignature::LightScatteringVolume].InitAsDescriptorTable(1, &ranges[0]);
+		rootParams[ApplyVolumetricsRootSignature::IntegratedVolume].InitAsDescriptorTable(1, &ranges[0]);
 		rootParams[ApplyVolumetricsRootSignature::DepthBuffer].InitAsDescriptorTable(1, &ranges[1]);
-		rootParams[ApplyVolumetricsRootSignature::LightScatteringVolumeSampler].InitAsDescriptorTable(1, &ranges[2]);
+		rootParams[ApplyVolumetricsRootSignature::IntegratedVolumeSampler].InitAsDescriptorTable(1, &ranges[2]);
 		rootParams[ApplyVolumetricsRootSignature::Output].InitAsDescriptorTable(1, &ranges[3]);
 
 		D3DComputePipelineDesc psoDesc = {
@@ -291,11 +334,15 @@ void VolumetricRendering::CreatePipelines()
 }
 
 
-void VolumetricRendering::RenderVolumetrics() const
+void VolumetricRendering::RenderVolumetrics(const RenderVolumetricsParams& params)
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
 
+	// Flip previous and current volume resources
+	m_CurrentLightScatteringVolume = 1 - m_CurrentLightScatteringVolume;
+
 	// Copy staging
+	m_VolumeConstantBuffer.CopyElement(g_D3DGraphicsContext->GetCurrentBackBuffer(), m_VolumetricsStagingBuffer);
 	m_GlobalFogConstantBuffer.CopyElement(g_D3DGraphicsContext->GetCurrentBackBuffer(), m_GlobalFogStagingBuffer);
 
 	std::vector<D3D12_RESOURCE_BARRIER> barriers;
@@ -308,10 +355,6 @@ void VolumetricRendering::RenderVolumetrics() const
 		{
 			barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(resource.GetResource(), before, after));
 		};
-	auto AddUAV = [&](const auto& resource)
-		{
-			barriers.push_back(CD3DX12_RESOURCE_BARRIER::UAV(resource.GetResource()));
-		};
 
 	AddTransition(m_VBufferA, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	AddTransition(m_VBufferB, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
@@ -319,22 +362,20 @@ void VolumetricRendering::RenderVolumetrics() const
 
 	DensityEstimation();
 
-	AddUAV(m_VBufferA);
-	AddUAV(m_VBufferB);
 	AddTransition(m_VBufferA, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 	AddTransition(m_VBufferB, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-	AddTransition(m_LightScatteringVolume, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	AddTransition(GetCurrentLSV(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	FlushBarriers();
 
-	LightScattering();
+	LightScattering(params);
 
-	AddUAV(m_LightScatteringVolume);
+	AddTransition(GetCurrentLSV(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	AddTransition(m_IntegratedVolume, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	FlushBarriers();
 
 	VolumeIntegration();
 
-	AddUAV(m_LightScatteringVolume);
-	AddTransition(m_LightScatteringVolume, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+	AddTransition(m_IntegratedVolume, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 	FlushBarriers();
 }
 
@@ -346,10 +387,10 @@ void VolumetricRendering::ApplyVolumetrics(const ApplyVolumetricsParams& params)
 	m_ApplyVolumetricsPipeline.Bind(commandList);
 
 	commandList->SetComputeRootConstantBufferView(ApplyVolumetricsRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
-	commandList->SetComputeRootConstantBufferView(ApplyVolumetricsRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(0));
-	commandList->SetComputeRootDescriptorTable(ApplyVolumetricsRootSignature::LightScatteringVolume, m_Descriptors.GetGPUHandle(SRV_LightScatteringVolume));
+	commandList->SetComputeRootConstantBufferView(ApplyVolumetricsRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(g_D3DGraphicsContext->GetCurrentBackBuffer()));
+	commandList->SetComputeRootDescriptorTable(ApplyVolumetricsRootSignature::IntegratedVolume, m_Descriptors.GetGPUHandle(SRV_IntegratedVolume));
 	commandList->SetComputeRootDescriptorTable(ApplyVolumetricsRootSignature::DepthBuffer, params.DepthBufferSRV);
-	commandList->SetComputeRootDescriptorTable(ApplyVolumetricsRootSignature::LightScatteringVolumeSampler, m_LightVolumeSampler.GetGPUHandle());
+	commandList->SetComputeRootDescriptorTable(ApplyVolumetricsRootSignature::IntegratedVolumeSampler, m_LightVolumeSampler.GetGPUHandle());
 	commandList->SetComputeRootDescriptorTable(ApplyVolumetricsRootSignature::Output, params.OutputUAV);
 
 	const UINT groupsX = (params.OutputResolution.x + 7) / 8;
@@ -369,7 +410,7 @@ void VolumetricRendering::DensityEstimation() const
 	m_DensityEstimationPipeline.Bind(commandList);
 
 	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
-	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(0));
+	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(g_D3DGraphicsContext->GetCurrentBackBuffer()));
 	commandList->SetComputeRootConstantBufferView(DensityEstimationRootSignature::GlobalFogConstantBuffer, m_GlobalFogConstantBuffer.GetAddressOfElement(g_D3DGraphicsContext->GetCurrentBackBuffer()));
 	commandList->SetComputeRootDescriptorTable(DensityEstimationRootSignature::VBuffer, m_Descriptors.GetGPUHandle(UAV_VBufferA));
 
@@ -378,7 +419,7 @@ void VolumetricRendering::DensityEstimation() const
 	PIXEndEvent(commandList);
 }
 
-void VolumetricRendering::LightScattering() const
+void VolumetricRendering::LightScattering(const RenderVolumetricsParams& params) const
 {
 	const auto commandList = g_D3DGraphicsContext->GetCommandList();
 	PIXBeginEvent(commandList, PIX_COLOR_INDEX(22), "Light Scattering");
@@ -389,12 +430,25 @@ void VolumetricRendering::LightScattering() const
 
 	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
 	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::LightConstantBuffer, m_LightManager->GetLightingConstantBuffer());
-	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(0));
+	commandList->SetComputeRootConstantBufferView(LightScatteringRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(g_D3DGraphicsContext->GetCurrentBackBuffer()));
+	const LightScatteringConstantBuffer cb
+	{
+		.DepthBufferDimensions = params.DepthBufferDimensions,
+		.PrevDepthBufferDimensions = params.PreviousDepthBufferDimensions
+	};
+	commandList->SetComputeRoot32BitConstants(LightScatteringRootSignature::LightScatteringConstantBuffer, SizeOfInUint32(cb), &cb, 0);
+
 	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::VBuffer, m_Descriptors.GetGPUHandle(SRV_VBufferA));
 	commandList->SetComputeRootShaderResourceView(LightScatteringRootSignature::PointLightBuffer, m_LightManager->GetPointLightBuffer());
-	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::SunESM, shadowMap);
-	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::ShadowSampler, m_LightManager->GetShadowSamplers());
-	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::LightScatteringVolume, m_Descriptors.GetGPUHandle(UAV_LightScatteringVolume));
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::SunSM, shadowMap);
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::SceneDepth, params.DepthBuffer);
+
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::ShadowSamplers, m_LightManager->GetShadowSamplers());
+
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::LightScatteringVolume, GetCurrentLSV_UAV());
+
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::PreviousLightScatteringVolume, GetPreviousLSV_SRV());
+	commandList->SetComputeRootDescriptorTable(LightScatteringRootSignature::PreviousSceneDepth, params.PreviousDepthBuffer);
 
 	commandList->Dispatch(m_DispatchGroups.x, m_DispatchGroups.y, m_DispatchGroups.z);
 
@@ -409,8 +463,9 @@ void VolumetricRendering::VolumeIntegration() const
 	m_VolumeIntegrationPipeline.Bind(commandList);
 
 	commandList->SetComputeRootConstantBufferView(VolumeIntegrationRootSignature::PassConstantBuffer, g_D3DGraphicsContext->GetPassCBAddress());
-	commandList->SetComputeRootConstantBufferView(VolumeIntegrationRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(0));
-	commandList->SetComputeRootDescriptorTable(VolumeIntegrationRootSignature::LightScatteringVolume, m_Descriptors.GetGPUHandle(UAV_LightScatteringVolume));
+	commandList->SetComputeRootConstantBufferView(VolumeIntegrationRootSignature::VolumeConstantBuffer, m_VolumeConstantBuffer.GetAddressOfElement(g_D3DGraphicsContext->GetCurrentBackBuffer()));
+	commandList->SetComputeRootDescriptorTable(VolumeIntegrationRootSignature::LightScatteringVolume, GetCurrentLSV_SRV());
+	commandList->SetComputeRootDescriptorTable(VolumeIntegrationRootSignature::IntegratedVolume, m_Descriptors.GetGPUHandle(UAV_IntegratedVolume));
 
 	// Dispatch a single group along the z axis
 	// A single slice will 'march' through the volume to accumulate values
@@ -422,6 +477,10 @@ void VolumetricRendering::VolumeIntegration() const
 
 void VolumetricRendering::DrawGui()
 {
+	ImGui::Text("Volumetrics");
+
+	ImGui::SliderFloat("Max Distance", &m_VolumetricsStagingBuffer.MaxVolumeDistance, 0.1f, 100.0f);
+
 	ImGui::Text("Global Fog");
 
 	XMFLOAT3 albedo = m_GlobalFogStagingBuffer.Albedo;
@@ -451,4 +510,18 @@ void VolumetricRendering::DrawGui()
 
 	ImGui::DragFloat("Fog Height", &m_GlobalFogStagingBuffer.MaxHeight, 0.01f);
 	ImGui::DragFloat("Fog Radius", &m_GlobalFogStagingBuffer.Radius, 0.01f);
+
+	ImGui::Text("Temporal Integration");
+	bool useTemporal = m_VolumetricsStagingBuffer.UseTemporalReprojection;
+	if (ImGui::Checkbox("Use Temporal", &useTemporal))
+	{
+		m_VolumetricsStagingBuffer.UseTemporalReprojection = useTemporal;
+	}
+	{
+		GuiHelpers::DisableScope disable(!useTemporal);
+
+		ImGui::SliderFloat("Jitter Multiplier", &m_VolumetricsStagingBuffer.LightScatteringJitterMultiplier, 0.0f, 1.0f);
+		ImGui::SliderFloat("History Weight", &m_VolumetricsStagingBuffer.HistoryWeight, 0.0f, 1.0f);
+	}
+
 }

@@ -17,14 +17,28 @@ class VolumetricRendering
 	{
 		SRV_VBufferA = 0,
 		SRV_VBufferB,
-		SRV_LightScatteringVolume,
+		SRV_LightScatteringVolume0,
+		SRV_LightScatteringVolume1,
+		SRV_IntegratedVolume,
 		UAV_VBufferA,
 		UAV_VBufferB,
-		UAV_LightScatteringVolume,
+		UAV_LightScatteringVolume0,
+		UAV_LightScatteringVolume1,
+		UAV_IntegratedVolume,
 		DescriptorCount
 	};
 
 public:
+
+	struct RenderVolumetricsParams
+	{
+		D3D12_GPU_DESCRIPTOR_HANDLE DepthBuffer;
+		XMUINT2 DepthBufferDimensions;
+
+		D3D12_GPU_DESCRIPTOR_HANDLE PreviousDepthBuffer;
+		XMUINT2 PreviousDepthBufferDimensions;
+	};
+
 	struct ApplyVolumetricsParams
 	{
 		D3D12_GPU_DESCRIPTOR_HANDLE OutputUAV;
@@ -40,7 +54,7 @@ public:
 	DISALLOW_COPY(VolumetricRendering);
 	DEFAULT_MOVE(VolumetricRendering);
 
-	void RenderVolumetrics() const;
+	void RenderVolumetrics(const RenderVolumetricsParams& params);
 	void ApplyVolumetrics(const ApplyVolumetricsParams& params) const;
 
 
@@ -52,14 +66,24 @@ private:
 
 	// Volumetric Rendering sub-stages
 	void DensityEstimation() const;
-	void LightScattering() const;
+	void LightScattering(const RenderVolumetricsParams& params) const;
 	void VolumeIntegration() const;
+
+	// LSV = LightScatteringVolume
+	inline const Texture& GetCurrentLSV() const { return m_LightScatteringVolumes.at(m_CurrentLightScatteringVolume); }
+	inline const Texture& GetPreviousLSV() const { return m_LightScatteringVolumes.at(1 - m_CurrentLightScatteringVolume); }
+
+	inline Texture& GetCurrentLSV() { return m_LightScatteringVolumes.at(m_CurrentLightScatteringVolume); }
+	inline Texture& GetPreviousLSV() { return m_LightScatteringVolumes.at(1 - m_CurrentLightScatteringVolume); }
+
+	inline D3D12_GPU_DESCRIPTOR_HANDLE GetCurrentLSV_SRV() const { return m_Descriptors.GetGPUHandle(SRV_LightScatteringVolume0 + m_CurrentLightScatteringVolume); }
+	inline D3D12_GPU_DESCRIPTOR_HANDLE GetCurrentLSV_UAV() const { return m_Descriptors.GetGPUHandle(UAV_LightScatteringVolume0 + m_CurrentLightScatteringVolume); }
+
+	inline D3D12_GPU_DESCRIPTOR_HANDLE GetPreviousLSV_SRV() const { return m_Descriptors.GetGPUHandle(SRV_LightScatteringVolume0 + (1 - m_CurrentLightScatteringVolume)); }
 
 private:
 	XMUINT3 m_VolumeResolution = { 512, 288, 256 };
 	XMUINT3 m_DispatchGroups;
-
-	float m_MaxVolumeDistance = 100.0f;
 
 	DXGI_FORMAT m_Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 
@@ -84,7 +108,11 @@ private:
 	 * RGB - Scattered Light to Camera
 	 * A   - Extinction
 	*/
-	Texture m_LightScatteringVolume;
+	// Double-buffered to allow temporal integration
+	std::array<Texture, 2> m_LightScatteringVolumes;
+	UINT m_CurrentLightScatteringVolume = 0;
+
+	Texture m_IntegratedVolume;
 
 	UploadBuffer<VolumetricsConstantBuffer> m_VolumeConstantBuffer;
 	UploadBuffer<GlobalFogConstantBuffer> m_GlobalFogConstantBuffer;
@@ -102,5 +130,6 @@ private:
 
 	LightManager* m_LightManager;
 
+	VolumetricsConstantBuffer m_VolumetricsStagingBuffer;
 	GlobalFogConstantBuffer m_GlobalFogStagingBuffer;
 };

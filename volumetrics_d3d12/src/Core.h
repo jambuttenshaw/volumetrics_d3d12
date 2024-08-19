@@ -54,9 +54,17 @@ inline UINT64 Align(UINT64 size, UINT64 alignment)
 
 // DX Helpers
 #ifdef _DEBUG
-#define D3D_NAME(T) THROW_IF_FAIL(T->SetName(L#T))
+#define D3D_NAME_AUTO(T) THROW_IF_FAIL(T->SetName(L#T))
+#define D3D_NAME(T, name) THROW_IF_FAIL(T->SetName(name))
+
+#define CREATE_INDEXED_NAME(name, i) name #i
+
 #else
-#define D3D_NAME(T) 
+#define D3D_NAME_AUTO(T) 
+#define D3D_NAME(T, name)
+
+#define CREATE_INDEXED_NAME(name, i)
+
 #endif
 
 

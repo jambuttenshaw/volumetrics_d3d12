@@ -175,7 +175,7 @@ void IBL::CreateResources()
 			6,
 			1);
 		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-		m_IrradianceMap = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_IrradianceMap = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"IrradianceMap");
 
 		// Create SRV
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -198,7 +198,7 @@ void IBL::CreateResources()
 			1,
 			1);
 		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-		m_BRDFIntegrationMap = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_BRDFIntegrationMap = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"BRDFIntegrationMap");
 
 		// Create SRV
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -222,7 +222,7 @@ void IBL::CreateResources()
 			6,
 			m_PEMRoughnessBins);
 		desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-		m_PreFilteredEnvironmentMap = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		m_PreFilteredEnvironmentMap = std::make_unique<Texture>(&desc, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, L"PEM");
 
 		// Create SRV
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};

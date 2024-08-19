@@ -8,7 +8,7 @@ D3DFrameResources::D3DFrameResources()
 {
 	// Create command allocator
 	THROW_IF_FAIL(g_D3DGraphicsContext->GetDevice()->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_CommandAllocator)));
-	D3D_NAME(m_CommandAllocator);
+	D3D_NAME_AUTO(m_CommandAllocator);
 
 	// Create per-pass and per-object constant buffer
 	m_PassCB.Allocate(g_D3DGraphicsContext->GetDevice(), 1, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, L"Pass Constant Buffer");

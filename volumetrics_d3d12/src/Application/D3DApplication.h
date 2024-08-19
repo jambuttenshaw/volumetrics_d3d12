@@ -75,6 +75,8 @@ private:
 	std::unique_ptr<TextureLoader> m_TextureLoader;
 
 	PassConstantBuffer m_PassCB;
+	XMMATRIX m_PrevView;
+	XMMATRIX m_PrevProj;
 
 	GameTimer m_Timer;
 	Camera m_Camera;

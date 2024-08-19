@@ -4,12 +4,12 @@
 #include "Renderer/D3DGraphicsContext.h"
 
 
-Texture::Texture(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* const clearValue)
+Texture::Texture(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const wchar_t* resourceName, const D3D12_CLEAR_VALUE* const clearValue)
 {
-	Allocate(desc, initialState, clearValue);
+	Allocate(desc, initialState, resourceName, clearValue);
 }
 
-void Texture::Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* const clearValue)
+void Texture::Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STATES initialState, const wchar_t* resourceName, const D3D12_CLEAR_VALUE* const clearValue)
 {
 	m_Format = desc->Format;
 
@@ -22,4 +22,6 @@ void Texture::Allocate(const D3D12_RESOURCE_DESC* const desc, D3D12_RESOURCE_STA
 		initialState,
 		clearValue,
 		IID_PPV_ARGS(&m_Resource)));
+
+	D3D_NAME(m_Resource, resourceName);
 }

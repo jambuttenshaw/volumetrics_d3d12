@@ -189,11 +189,14 @@ void LightManager::DrawGui()
 		}
 	}
 
-	static bool showShadowMap = true;
+	/*
+	static bool showShadowMap = false;
+	ImGui::Checkbox("Show Shadow Map", &showShadowMap);
 	if (ImGui::Begin("Shadow Map", &showShadowMap))
 	{
 		ImGui::Image(reinterpret_cast<ImTextureID>(m_SunShadowMap.GetSRV().ptr), { 400.0f, 400.0f });
 
-		ImGui::End();
 	}
+	ImGui::End();
+	*/
 }

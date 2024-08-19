@@ -25,8 +25,8 @@ public:
 	DISALLOW_COPY(TextureLoader);
 	DEFAULT_MOVE(TextureLoader);
 
-	std::unique_ptr<Texture> LoadTextureFromFile(const std::string& filename, const LoadTextureConfig* const config);
-	std::unique_ptr<Texture> LoadTextureCubeFromFile(const std::string& filename, const LoadTextureConfig* const config);
+	std::unique_ptr<Texture> LoadTextureFromFile(const std::string& filename, const LoadTextureConfig* const config, const wchar_t* resourceName);
+	std::unique_ptr<Texture> LoadTextureCubeFromFile(const std::string& filename, const LoadTextureConfig* const config, const wchar_t* resourceName);
 
 	void PerformUploads();
 	void PerformUploadsImmediatelyAndBlock();
