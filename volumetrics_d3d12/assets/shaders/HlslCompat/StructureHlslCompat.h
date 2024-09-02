@@ -113,6 +113,11 @@ struct MaterialGPUData
 
 // Volumetrics
 
+#define VOLUME_FLAGS_DISABLE_AMBIENT		(1 << 0)
+#define VOLUME_FLAGS_DISABLE_SUN			(1 << 1)
+#define VOLUME_FLAGS_DISABLE_POINT_LIGHTS	(1 << 2)
+
+
 struct VolumetricsConstantBuffer
 {
 	// Volume properties
@@ -124,6 +129,8 @@ struct VolumetricsConstantBuffer
 	float LightScatteringJitterMultiplier;
 
 	float HistoryWeight;
+
+	UINT Flags;
 };
 
 // Collection of parameters required to calculate light scattering

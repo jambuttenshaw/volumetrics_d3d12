@@ -94,7 +94,7 @@ VolumetricRendering::VolumetricRendering(LightManager& lightManager)
 	CreateResources();
 	CreatePipelines();
 
-	m_VolumetricsStagingBuffer =
+	m_VolumeStagingBuffer =
 	{
 		.VolumeResolution = m_VolumeResolution,
 		.MaxVolumeDistance = 50.0f,
@@ -342,7 +342,7 @@ void VolumetricRendering::RenderVolumetrics(const RenderVolumetricsParams& param
 	m_CurrentLightScatteringVolume = 1 - m_CurrentLightScatteringVolume;
 
 	// Copy staging
-	m_VolumeConstantBuffer.CopyElement(g_D3DGraphicsContext->GetCurrentBackBuffer(), m_VolumetricsStagingBuffer);
+	m_VolumeConstantBuffer.CopyElement(g_D3DGraphicsContext->GetCurrentBackBuffer(), m_VolumeStagingBuffer);
 	m_GlobalFogConstantBuffer.CopyElement(g_D3DGraphicsContext->GetCurrentBackBuffer(), m_GlobalFogStagingBuffer);
 
 	std::vector<D3D12_RESOURCE_BARRIER> barriers;
@@ -477,12 +477,12 @@ void VolumetricRendering::VolumeIntegration() const
 
 void VolumetricRendering::DrawGui()
 {
-	ImGui::SliderFloat("Max Distance", &m_VolumetricsStagingBuffer.MaxVolumeDistance, 0.1f, 100.0f);
+	ImGui::SliderFloat("Max Distance", &m_VolumeStagingBuffer.MaxVolumeDistance, 0.1f, 100.0f);
 
 	if (ImGui::TreeNode("Global Fog"))
 	{
 		XMFLOAT3 albedo = m_GlobalFogStagingBuffer.Albedo;
-		if (ImGui::DragFloat3("Albedo", &albedo.x, 0.01f))
+		if (ImGui::DragFloat3("Albedo", &albedo.x, 0.001f))
 		{
 			albedo.x = max(0.0f, albedo.x);
 			albedo.y = max(0.0f, albedo.y);
@@ -490,13 +490,13 @@ void VolumetricRendering::DrawGui()
 			m_GlobalFogStagingBuffer.Albedo = albedo;
 		}
 
-		if (ImGui::DragFloat("Extinction", &m_GlobalFogStagingBuffer.Extinction, 0.01f))
+		if (ImGui::DragFloat("Extinction", &m_GlobalFogStagingBuffer.Extinction, 0.001f))
 		{
 			m_GlobalFogStagingBuffer.Extinction = max(0.0f, m_GlobalFogStagingBuffer.Extinction);
 		}
 
 		XMFLOAT3 emission = m_GlobalFogStagingBuffer.Emission;
-		if (ImGui::DragFloat3("Emission", &emission.x, 0.01f))
+		if (ImGui::DragFloat3("Emission", &emission.x, 0.001f))
 		{
 			emission.x = max(0.0f, emission.x);
 			emission.y = max(0.0f, emission.y);
@@ -512,25 +512,27 @@ void VolumetricRendering::DrawGui()
 		ImGui::TreePop();
 	}
 
-	if (ImGui::TreeNode("Lighting"))
+	if (ImGui::TreeNode(this, "Lighting"))
 	{
-
+		GuiHelpers::FlagOption(&m_VolumeStagingBuffer.Flags, "Disable Ambient", VOLUME_FLAGS_DISABLE_AMBIENT);
+		GuiHelpers::FlagOption(&m_VolumeStagingBuffer.Flags, "Disable Sun", VOLUME_FLAGS_DISABLE_SUN);
+		GuiHelpers::FlagOption(&m_VolumeStagingBuffer.Flags, "Disable Point Lights", VOLUME_FLAGS_DISABLE_POINT_LIGHTS);
 
 		ImGui::TreePop();
 	}
 
 	if (ImGui::TreeNode("Temporal Integration"))
 	{
-		bool useTemporal = m_VolumetricsStagingBuffer.UseTemporalReprojection;
+		bool useTemporal = m_VolumeStagingBuffer.UseTemporalReprojection;
 		if (ImGui::Checkbox("Use Temporal", &useTemporal))
 		{
-			m_VolumetricsStagingBuffer.UseTemporalReprojection = useTemporal;
+			m_VolumeStagingBuffer.UseTemporalReprojection = useTemporal;
 		}
 		{
 			GuiHelpers::DisableScope disable(!useTemporal);
 
-			ImGui::SliderFloat("Jitter Multiplier", &m_VolumetricsStagingBuffer.LightScatteringJitterMultiplier, 0.0f, 1.0f);
-			ImGui::SliderFloat("History Weight", &m_VolumetricsStagingBuffer.HistoryWeight, 0.0f, 1.0f);
+			ImGui::SliderFloat("Jitter Multiplier", &m_VolumeStagingBuffer.LightScatteringJitterMultiplier, 0.0f, 1.0f);
+			ImGui::SliderFloat("History Weight", &m_VolumeStagingBuffer.HistoryWeight, 0.0f, 1.0f);
 		}
 
 		ImGui::TreePop();

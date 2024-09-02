@@ -5,7 +5,6 @@
 #include "../../HlslCompat/StructureHlslCompat.h"
 
 #include "volumetrics.hlsli"
-#include "../../include/simplex_noise.hlsli"
 
 
 ConstantBuffer<PassConstantBuffer> g_PassCB : register(b0);
@@ -56,24 +55,13 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	// Get world-space pos
 	const float3 p_ws = ComputeWorldSpacePositionFromFroxelIndex(DTid);
 
-	// Compute a noise value from the world space position
-	/*
-	float noise = 0.0f;
-	float freq = 0.05f;
-	float amp = 0.005f;
-	for (uint octave = 0; octave < 4; octave++)
-	{
-		noise += amp * snoise(p_ws * freq + (0.1f * g_PassCB.TotalTime));
-		amp *= 0.5f;
-		freq *= 2.0f;
-	}
-	noise *= 0.5f;
-	extinction *= noise;
-	*/
+	const float r = g_GlobalFogCB.Radius;
+	const float s = g_GlobalFogCB.RadiusSmoothing;
 
-	// Confine fog to a small region
-	const float r = length(p_ws.xz);
-	extinction *= 1.0f - smoothstep(g_GlobalFogCB.Radius, g_GlobalFogCB.Radius + g_GlobalFogCB.RadiusSmoothing, r);
+	// Confine fog to a cuboid
+	extinction *= smoothstep(-r - s, -r, p_ws.x) * (1.0f - smoothstep(r, r + s, p_ws.x));
+	extinction *= smoothstep(-r - s, -r, p_ws.z) * (1.0f - smoothstep(r, r + s, p_ws.z));
+
 	extinction *= smoothstep(0.0f, 1.0f, p_ws.y) * (1.0f - smoothstep(g_GlobalFogCB.MaxHeight, g_GlobalFogCB.MaxHeight + g_GlobalFogCB.HeightSmoothing, p_ws.y));
 	
 	float3 scattering = g_GlobalFogCB.Albedo * extinction;

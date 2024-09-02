@@ -38,4 +38,20 @@ namespace GuiHelpers
 
 	};
 
+	// Returns true when the flag was modified
+	inline bool FlagOption(UINT* bitfield, const char* name, UINT value)
+	{
+		ASSERT(bitfield, "Invalid bitfield");
+		bool flag = *bitfield & value;
+		if (ImGui::Checkbox(name, &flag))
+		{
+			if (flag)
+				*bitfield |= value;
+			else
+				*bitfield &= ~value;
+			return true;
+		}
+		return false;
+	};
+
 }

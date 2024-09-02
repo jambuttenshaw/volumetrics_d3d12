@@ -23,10 +23,10 @@ public:
 	inline float GetRoughness() const { return m_Data.Roughness; }
 	inline float GetMetalness() const { return m_Data.Metalness; }
 
-	inline void SetAlbedo(const XMFLOAT3& albedo) { m_Data.Albedo = albedo; SetDirty(); }
-	inline void SetRoughness(float roughness) { m_Data.Roughness = roughness; SetDirty(); }
-	inline void SetMetalness(float metalness) { m_Data.Metalness = metalness; SetDirty(); }
-
+	// returns pointers to itself to daisy chain calls
+	inline Material* SetAlbedo(const XMFLOAT3& albedo) { m_Data.Albedo = albedo; SetDirty(); return this; }
+	inline Material* SetRoughness(float roughness) { m_Data.Roughness = roughness; SetDirty(); return this; }
+	inline Material* SetMetalness(float metalness) { m_Data.Metalness = metalness; SetDirty(); return this; }
 
 
 	void DrawGui();

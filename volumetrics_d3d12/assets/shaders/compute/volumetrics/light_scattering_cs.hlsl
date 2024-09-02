@@ -182,6 +182,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	const float sun_visibility = g_LightCB.DirectionalLight.UseESM ? GetVisibility_ESM(p_ws) : GetVisibility(p_ws); // Sample shadow map to get visibility
 
 	// Evaluate in-scattering from directional light
+	if (!(g_VolumeCB.Flags & VOLUME_FLAGS_DISABLE_SUN))
 	{
 		const float3 l = -normalize(g_LightCB.DirectionalLight.Direction);
 		const float3 el = g_LightCB.DirectionalLight.Intensity * g_LightCB.DirectionalLight.Color;
@@ -192,23 +193,27 @@ void main(uint3 DTid : SV_DispatchThreadID)
 	}
 
 	// Evaluate sky ambient lighting
+	if (!(g_VolumeCB.Flags & VOLUME_FLAGS_DISABLE_AMBIENT))
 	{
 		in_scattering += sun_visibility * GetSkySHDiffuse(v * anisotropy, g_LightCB.SkyIrradianceEnvironmentMap);
 	}
 
 
 	// Iterate through point lights to evaluate in-scattering
-	for (uint i = 0; i < g_LightCB.PointLightCount; i++)
+	if (!(g_VolumeCB.Flags & VOLUME_FLAGS_DISABLE_POINT_LIGHTS))
 	{
-		PointLightGPUData light = g_PointLights[i];
+		for (uint i = 0; i < g_LightCB.PointLightCount; i++)
+		{
+			PointLightGPUData light = g_PointLights[i];
 
-		const float3 l = normalize(light.Position.xyz - p_ws);
-		const float3 el = light.Color * light.Intensity;
-		const float d = length(light.Position.xyz - p_ws);
+			const float3 l = normalize(light.Position.xyz - p_ws);
+			const float3 el = light.Color * light.Intensity;
+			const float d = length(light.Position.xyz - p_ws);
 
-		const float phase = HGPhaseFunction(v, l, anisotropy);
-		const float atten = distanceAttenuation(d, light.Range);
-		in_scattering += phase * el * atten;
+			const float phase = HGPhaseFunction(v, l, anisotropy);
+			const float atten = distanceAttenuation(d, light.Range);
+			in_scattering += phase * el * atten;
+		}
 	}
 
 	float3 l_scat = in_scattering * scattering;

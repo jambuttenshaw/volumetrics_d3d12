@@ -157,7 +157,7 @@ void D3DApplication::OnInit()
 		config.ResourceState = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 
 		// This will all take a very long time...
-		auto environmentMap = m_TextureLoader->LoadTextureCubeFromFile("assets/textures/test_environment.png", &config, L"EnvironmentMap");
+		auto environmentMap = m_TextureLoader->LoadTextureCubeFromFile("assets/textures/environment.png", &config, L"EnvironmentMap");
 
 		m_TextureLoader->PerformUploadsImmediatelyAndBlock();
 		m_LightManager->GetIBL()->ProcessEnvironmentMap(std::move(environmentMap));

@@ -18,7 +18,7 @@ public:
 
 protected:
 
-	void CreateNewInstance(size_t geometry, const Transform& transform);
+	GeometryInstance* CreateNewInstance(size_t geometry, const Transform& transform);
 
 protected:
 	size_t m_CubeGeometryHandle = -1;

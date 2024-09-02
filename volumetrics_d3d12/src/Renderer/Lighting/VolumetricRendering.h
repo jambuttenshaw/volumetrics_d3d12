@@ -130,6 +130,6 @@ private:
 
 	LightManager* m_LightManager;
 
-	VolumetricsConstantBuffer m_VolumetricsStagingBuffer;
+	VolumetricsConstantBuffer m_VolumeStagingBuffer;
 	GlobalFogConstantBuffer m_GlobalFogStagingBuffer;
 };

@@ -38,7 +38,7 @@ void main(uint3 DTid : SV_DispatchThreadID)
 		const float transmittance = exp(-extinction * stepLength);
 
 		const float3 scatteringIntegratedOverSlice = (scattering - scattering * transmittance) / max(extinction, 0.00001f);
-		accumulatedLighting += scatteringIntegratedOverSlice * accumulatedTransmittance;
+		accumulatedLighting += scatteringIntegratedOverSlice * saturate(accumulatedTransmittance);
 
 		accumulatedTransmittance *= transmittance;
 
